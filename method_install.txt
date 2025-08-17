@@ -1,0 +1,94 @@
+
+
+## 1. Create a `requirements.txt` file
+
+In your project folder (where you have `processing.py`), create a file called **`requirements.txt`** with the following content:
+
+```txt
+nba_api
+numpy<2
+bottleneck
+openpyxl
+requests
+beautifulsoup4
+pandas
+```
+
+This way, all dependencies are centralized.
+
+Then install everything in your VS Code terminal with:
+
+```bash
+pip install -r requirements.txt
+```
+
+*(If `pip` isn’t recognized, use `py -m pip install -r requirements.txt`.)*
+=> this works
+---
+
+## 2. Clean `processing.py`
+
+Remove all `!pip install ...` lines (they only work in Jupyter/Colab).
+Here’s a cleaned version of the top of your file:
+
+```python
+# -*- coding: utf-8 -*-
+"""NBA GM Tool"""
+
+from nba_api.stats.static import teams, players
+from nba_api.stats.endpoints import (
+    commonteamroster,
+    playercareerstats,
+    leaguedashplayerstats,
+)
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+
+# Example: Load all NBA teams
+nba_teams = teams.get_teams()
+df_teams = pd.DataFrame(nba_teams)
+print(df_teams.head())
+
+# Example: Load player stats for 2024-25 season
+df_players = leaguedashplayerstats.LeagueDashPlayerStats(season='2024-25').get_data_frames()[0]
+print(df_players.head())
+```
+
+---
+
+## 3. Handling Excel files
+
+In Colab you used:
+
+```python
+from google.colab import files
+uploaded = files.upload()
+```
+
+That won’t work in VS Code.
+Instead, just load from local Excel files in the project folder:
+
+```python
+df_western_conf_standing = pd.read_excel("western_conf_standing.xlsx")
+df_eastern_conf_standing = pd.read_excel("eastern_conf_standing.xlsx")
+```
+
+So put all the Excel files you need in the same folder as `processing.py`.
+
+---
+
+## 4. Run the script
+
+From VS Code terminal:
+
+```bash
+python processing.py
+```
+
+If you want auto‑reload (like Colab), we can set up **Streamlit** later — you already mentioned you want that.
+
+---
+
+⚡ Question for you:
+👉 Do you want me to **directly rewrite your whole `processing.py` into a VS Code‑ready version** (no Colab stuff, everything clean with local file loading), or do you prefer we first just test a minimal working script (NBA players DataFrame) before migrating the rest?

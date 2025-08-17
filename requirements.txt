@@ -1,0 +1,8 @@
+nba_api
+numpy<2
+bottleneck
+openpyxl
+requests
+beautifulsoup4
+pandas
+duckdb
