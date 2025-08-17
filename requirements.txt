@@ -1,3 +1,4 @@
+to run in terminal :  py -m pip install -r requirements.txt
 nba_api
 numpy<2
 bottleneck
@@ -6,3 +7,4 @@ requests
 beautifulsoup4
 pandas
 duckdb
+streamlit-option-menu

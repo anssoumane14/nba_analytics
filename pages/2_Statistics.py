@@ -5,6 +5,17 @@ import plotly.express as px
 # Run with: py -m streamlit run test.py
 st.set_page_config(layout="wide")
 
+# -------------------------------
+# Show navbar
+# -------------------------------
+# --- Top navbar (official) ---
+c1, c2, c3, c4 = st.columns(4)
+with c1: st.page_link("home.py",                   label="🏠 Home")
+with c2: st.page_link("pages/1_Team.py",           label="🏀 Team")
+with c3: st.page_link("pages/2_Statistics.py",     label="📊 Statistics")
+with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historic")
+
+
 # Load data
 df_reg_season_players = pd.read_excel("data/df_reg_season_players.xlsx")
 df_playoff_players = pd.read_excel("data/df_playoff_players.xlsx")

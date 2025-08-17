@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-import pandas as pd
 import streamlit as st
-import plotly.express as px  # optional for future charts
+import pandas as pd
+import plotly.express as px
+from nav import navbar
 
 # -------------------------------
 # Page config
@@ -9,13 +10,27 @@ import plotly.express as px  # optional for future charts
 st.set_page_config(page_title="NBA Dashboard", layout="wide")
 
 # -------------------------------
+# Show navbar
+# -------------------------------
+
+# --- Top navbar (official) ---
+c1, c2, c3, c4 = st.columns(4)
+with c1: st.page_link("home.py",                   label="🏠 Home")
+with c2: st.page_link("pages/1_Team.py",           label="🏀 Team")
+with c3: st.page_link("pages/2_Statistics.py",     label="📊 Statistics")
+with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historic")
+
+# -------------------------------
 # Load Data
 # -------------------------------
 df_west = pd.read_excel("data/df_western_conf_standing.xlsx")
 df_east = pd.read_excel("data/df_eastern_conf_standing.xlsx")
 df_team_ratings = pd.read_excel("data/df_nba_team_reg_season_ratings.xlsx")
-df_players = pd.read_excel("data/df_reg_season_players.xlsx")
+df_players = pd.read_excel("data/df_reg_season_players_filtered.xlsx")
 df_salaries = pd.read_excel("data/df_nba_players_salaries.xlsx")
+
+
+
 
 # -------------------------------
 # Title
@@ -28,6 +43,8 @@ st.markdown(
     "<h4 style='text-align: center; color: gray;'>A Global Look at the League</h4>",
     unsafe_allow_html=True
 )
+
+
 
 # -------------------------------
 # Tabs (bookmark-like navigation)
