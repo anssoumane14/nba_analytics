@@ -17,14 +17,14 @@ with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historic")
 
 
 # Load data
-df_reg_season_players = pd.read_excel("data/df_reg_season_players.xlsx")
-df_playoff_players = pd.read_excel("data/df_playoff_players.xlsx")
+df_reg_season_players = pd.read_excel("data/df_reg_season_players_filtered.xlsx")
+df_playoff_players = pd.read_excel("data/df_playoff_players_filtered.xlsx")
 
 # -------------------------------
 # Title
 # -------------------------------
 st.markdown(
-    "<h1 style='text-align: center;'>NBA 2024-25 Statistics</h1>", 
+    "<h1 style='text-align: center;'>NBA 2024-25 Statistics QQ</h1>", 
     unsafe_allow_html=True
 )
 st.markdown(
