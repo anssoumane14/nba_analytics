@@ -13,11 +13,12 @@ st.set_page_config(page_title="Team", layout="wide")
 # Show navbar
 # -------------------------------
 # --- Top navbar (official) ---
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4,c5 = st.columns(5)
 with c1: st.page_link("home.py",                   label="🏠 Home")
 with c2: st.page_link("pages/1_Team.py",           label="🏀 Team")
 with c3: st.page_link("pages/2_Statistics.py",     label="📊 Statistics")
 with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historic")
+with c5: st.page_link("pages/4_Trade_Machine.py",  label="💸 Trade Machine")
 
 
 # -------------------------------
@@ -236,6 +237,7 @@ df_salaries_unpivoted = df_salaries.melt(
     var_name="YEAR",
     value_name="SALARY"
 )
+
 
 # -------------------------------
 # Join salaries (long) with players to get POSITION

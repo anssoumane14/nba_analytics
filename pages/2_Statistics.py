@@ -9,11 +9,13 @@ st.set_page_config(layout="wide")
 # Show navbar
 # -------------------------------
 # --- Top navbar (official) ---
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4,c5 = st.columns(5)
 with c1: st.page_link("home.py",                   label="🏠 Home")
 with c2: st.page_link("pages/1_Team.py",           label="🏀 Team")
 with c3: st.page_link("pages/2_Statistics.py",     label="📊 Statistics")
 with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historic")
+with c5: st.page_link("pages/4_Trade_Machine.py",  label="💸 Trade Machine")
+
 
 
 # Load data
@@ -24,7 +26,7 @@ df_playoff_players = pd.read_excel("data/df_playoff_players_filtered.xlsx")
 # Title
 # -------------------------------
 st.markdown(
-    "<h1 style='text-align: center;'>NBA 2024-25 Statistics QQ</h1>", 
+    "<h1 style='text-align: center;'>NBA 2024-25 Statistics</h1>", 
     unsafe_allow_html=True
 )
 st.markdown(
