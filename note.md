@@ -1,9 +1,12 @@
+=> General 
+1) remove the emoji and remplacing by icons
+2) translating in french ?
+3) documentatiing in french 
+- business part
+- + coding part
+4) be careful with UTF-8
 
-=> NBA STATICS
-* add export to excel button
-* filter
-
-=> PROCESSING
+5) PROCESSING
 * filter : 
 number of minutes  
 number of games
@@ -11,45 +14,51 @@ number of games
 creer processing_v3 pour drop definitiveemnt les joueuss nba, where position = unknown alors drop
 Dorka Juhász
 
+=> nav bar make it look better
 
-=> NBA CHAMPION
-* in df_nba_champion
-drop lg column
+=> home page
+bookmark 1: conf standing
+remove TM
+bookmark 4 : salaries
+adding a sentence stating : find quickly about salary insign for team and/or player
 
-""".
+=> team
+1) bookmark team stats
+- adding more spaces between the KPI in horizontals
+- full team : to add an icon
+- changing the field parameters : pre selecting some column or pre removing some of them : PLAYER_ID, TM, NICKNAME, TEAM_ABBREVIATION
 
-
-
-### ⏱ 4. **Decade-wise Analysis**
-
-* Radio filter: 1980s, 1990s, 2000s, 2010s, 2020s.
-* Show:
-
-  * Most dominant team in that decade
-  * MVP leaders
-  * Titles count per decade
-    👉 Great for storytelling about NBA dynasties.
-
----
-
-### 📈 7. **Team Head-to-Head in Finals**
-
-* Matrix/table to show which teams faced each other most in the Finals.
-* Ex: Lakers vs Celtics 🔥.
-
----
-
-### 👑 8. **Players with the Highest Finals Points / Rebounds / Assists**
-
-* Show records for players in Finals performances.
-* Could add a **Top Performance card** (e.g., "Most points in a Finals series").
+2) bookmark team salaries
+- adding more spaces between the KPI in horizontals
+- in documentation : writting the fact that the data contains null values = one of its limits
+- later for me changing the best value calculation (not priority)
 
 
-"""
+=> statistics 
+1) make the barchart look better
+2) removing repeated labels 
+ instead ofhaving two : (Regular Season - Per Game)
+we should have one as a title is better and its same for playoff
+🏀 Offensive Statistics (Regular Season - Per Game)
+🛡️ Defensive Statistics (Regular Season - Per Game)
+🏀 Offensive Statistics (Regular Season - Total)
+🛡️ Defensive Statistics (Regular Season - Total)
+
+3)
+* add export to excel button
+* filter
+
+4) full data
+- changing the field parameters : pre selecting some column or pre removing some of them : PLAYER_ID, TM, NICKNAME, TEAM_ABBREVIATION
+- 📊 Playoffs — Full Data (Field Parameter Style) => removing : (Field Parameter Style) 
+- 📊  Regular Season — Full Data (Field Parameter Style) => removing : (Field Parameter Style) 
 
 
-=> HOME
-* 
+=> champ historic
+
+1) making the barchart look better and adding a title like "historic insight"
+
+
 
 
 => processing_v2
