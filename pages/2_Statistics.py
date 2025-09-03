@@ -1,242 +1,274 @@
+# -*- coding: utf-8 -*-
 import pandas as pd
 import streamlit as st
 import plotly.express as px
 
-# Run with: py -m streamlit run test.py
-st.set_page_config(layout="wide")
+# Exécuter avec : py -m streamlit run pages/2_Statistics.py
+# -------------------------------
+# Configuration de la Page
+# -------------------------------
+st.set_page_config(layout="wide") # Configure la mise en page de la page Streamlit en mode large
 
 # -------------------------------
-# Show navbar
+# Affichage de la Barre de Navigation
 # -------------------------------
-# --- Top navbar (official) ---
-c1, c2, c3, c4,c5 = st.columns(5)
-with c1: st.page_link("home.py",                   label="🏠 Home")
-with c2: st.page_link("pages/1_Team.py",           label="🏀 Team")
-with c3: st.page_link("pages/2_Statistics.py",     label="📊 Statistics")
-with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historic")
-with c5: st.page_link("pages/4_Trade_Machine.py",  label="💸 Trade Machine")
+# --- Barre de navigation supérieure (officielle) ---
+c1, c2, c3, c4,c5 = st.columns(5) # Crée 5 colonnes pour les liens de navigation
+with c1: st.page_link("home.py",                   label="🏠 Accueil") # Lien vers la page d'accueil
+with c2: st.page_link("pages/1_Team.py",           label="🏀 Équipe") # Lien vers la page d'équipe
+with c3: st.page_link("pages/2_Statistics.py",     label="📊 Statistiques") # Lien vers la page de statistiques
+with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historique") # Lien vers la page historique des champions
+with c5: st.page_link("pages/4_Trade_Machine.py",  label="💸 Machine à Trade") # Lien vers la machine à trade
 
 
-
-# Load data
+# -------------------------------
+# Chargement des Données
+# -------------------------------
+# Charge les données filtrées des joueurs pour la saison régulière et les playoffs
 df_reg_season_players = pd.read_excel("data/df_reg_season_players_filtered.xlsx")
 df_playoff_players = pd.read_excel("data/df_playoff_players_filtered.xlsx")
 
 # -------------------------------
-# Title
+# Titre de la Page
 # -------------------------------
 st.markdown(
-    "<h1 style='text-align: center;'>NBA 2024-25 Statistics</h1>", 
-    unsafe_allow_html=True
+    "<h1 style='text-align: center;'>Statistiques NBA 2024-25</h1>", # Titre principal de la page
+    unsafe_allow_html=True # Permet l'interprétation du HTML
 )
 st.markdown(
-    "<h3 style='text-align: center; color: gray;'>Numbers Behind the Highlights</h3>", 
-    unsafe_allow_html=True
+    "<h3 style='text-align: center; color: gray;'>Les Chiffres Derrière les Faits Saillants</h3>", # Sous-titre
+    unsafe_allow_html=True # Permet l'interprétation du HTML
 )
 
 # -------------------------------
-# Filters in one row
+# Filtres d'Affichage (sur une seule ligne)
 # -------------------------------
-col1, col2, col3, col4 = st.columns([1, 1, 1, 1], gap="large")
+col1, col2, col3, col4 = st.columns([1, 1, 1, 1], gap="large") # Crée 4 colonnes pour les filtres
 
 with col1:
+    # Sélecteur de mode d'affichage des statistiques (Leaders, Top 30, Données Complètes)
     metric_filter = st.selectbox(
-        "Choose a view", 
-        ["Leaders", "Top 30", "Full Data"],
-        key="metric_filter"
+        "Choisir une vue",
+        ["Leaders", "Top 30", "Données Complètes"],
+        key="metric_filter" # Clé unique pour ce widget
     )
 
 with col2:
+    # Sélecteur du type de saison (Saison Régulière ou Playoffs)
     season_filter = st.radio(
-        "Season Type", 
-        ["Regular Season", "Playoffs"], 
-        horizontal=True,
-        key="season_filter"
+        "Type de Saison",
+        ["Saison Régulière", "Playoffs"],
+        horizontal=True, # Affiche les options horizontalement
+        key="season_filter" # Clé unique pour ce widget
     )
 with col3:
+    # Sélecteur du mode statistique (Par Match ou Total)
     stat_mode = st.radio(
-        "Stat Mode", 
-        ["Per Game", "Total"], 
-        horizontal=True,
-        key="stat_mode"
+        "Mode Statistique",
+        ["Par Match", "Total"],
+        horizontal=True, # Affiche les options horizontalement
+        key="stat_mode" # Clé unique pour ce widget
     )
 
-# Conditionally display Display Mode
-if metric_filter in ["Top 30", "Full Data"]:
-    view_mode = "Table"  # force Table for Top 30
+# Affichage conditionnel du mode d'affichage (Tableau ou Diagramme en barres)
+if metric_filter in ["Top 30", "Données Complètes"]:
+    view_mode = "Table"  # Force l'affichage en mode Tableau pour "Top 30" et "Données Complètes"
 else:
     with col4:
         view_mode = st.radio(
-            "Display Mode", 
-            ["Table", "Bar Chart"], 
-            horizontal=True,
-            key="view_mode"
+            "Mode d'Affichage",
+            ["Tableau", "Diagramme en Barres"],
+            horizontal=True, # Affiche les options horizontalement
+            key="view_mode" # Clé unique pour ce widget
         )
 
 
+# -------------------------------
+# Sélection du Jeu de Données Approprié
+# -------------------------------
+# Sélectionne le DataFrame en fonction du filtre de saison (Saison Régulière ou Playoffs)
+df = df_reg_season_players if season_filter == "Saison Régulière" else df_playoff_players
+
+# Filtre les joueurs pour ne conserver que ceux ayant joué plus de 10 matchs (GP)
+# et plus de 10 minutes par match (MIN_PG).
+df = df[(df["GP"] > 10) & (df["MIN_PG"] > 10)]
 
 # -------------------------------
-# Select the right dataset
-# -------------------------------
-
-df = df_reg_season_players if season_filter == "Regular Season" else df_playoff_players
-
-
-
-# -------------------------------
-# Utility: Custom Bar Plot
+# Utilitaire : Fonction de Graphique en Barres Personnalisé
 # -------------------------------
 def custom_bar_chart(data, col_name, title):
-    # Sort data descending for correct order
+    """
+    Génère un diagramme en barres horizontal personnalisé pour les statistiques des joueurs.
+    """
+    # Trie les données par la colonne spécifiée dans l'ordre décroissant
     data_sorted = data.sort_values(by=col_name, ascending=False)
 
+    # Crée le diagramme en barres avec Plotly Express
     fig = px.bar(
         data_sorted,
-        x=col_name,
-        y="PLAYER_NAME",
-        orientation="h",
-        color="TEAM",
-        title=title,
-        text=col_name,
-        category_orders={"PLAYER_NAME": data_sorted["PLAYER_NAME"].tolist()}  # enforce order
+        x=col_name, # Valeurs sur l'axe des X
+        y="PLAYER_NAME", # Noms des joueurs sur l'axe des Y
+        orientation="h", # Orientation horizontale
+        color="TEAM", # Couleur des barres par équipe
+        title=title, # Titre du graphique
+        text=col_name, # Texte affiché sur les barres (la valeur de la colonne)
+        category_orders={"PLAYER_NAME": data_sorted["PLAYER_NAME"].tolist()}  # Force l'ordre des catégories sur l'axe Y
     )
 
+    # Met à jour l'apparence des traces (barres)
     fig.update_traces(
-        texttemplate="%{text}",
-        textposition="inside",   # label stays inside the bar
-        insidetextanchor="end",  # align it to the end of the bar
-        textfont=dict(color="white", size=14, family="Arial")
+        texttemplate="%{text}", # Modèle du texte (affiche la valeur numérique)
+        textposition="inside",   # Positionne le texte à l'intérieur de la barre
+        insidetextanchor="end",  # Aligne le texte à la fin de la barre
+        textfont=dict(color="white", size=14, family="Arial") # Style du texte
     )
 
+    # Met à jour l'apparence de la mise en page du graphique
     fig.update_layout(
-        xaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
-        yaxis=dict(showgrid=False, zeroline=False),
-        bargap=0.2,
-        plot_bgcolor="white",
-        showlegend=True
+        xaxis=dict(showticklabels=False, showgrid=False, zeroline=False), # Cache les étiquettes et grilles de l'axe X
+        yaxis=dict(showgrid=False, zeroline=False), # Cache les grilles de l'axe Y
+        bargap=0.2, # Espacement entre les barres
+        plot_bgcolor="white", # Couleur de fond du graphique
+        showlegend=True # Affiche la légende des équipes
     )
 
-    return fig
-
+    return fig # Retourne l'objet figure Plotly
 
 # -------------------------------
-# Functions
+# Fonctions d'Affichage des Statistiques
 # -------------------------------
 def show_offense(df, label, mode, view_mode):
-    suffix = "_PG" if mode == "Per Game" else ""
-    st.markdown(f"## 🏀 Offensive Statistics ({label} - {mode})")
+    """
+    Affiche les statistiques offensives des joueurs.
+    """
+    suffix = "_PG" if mode == "Par Match" else "" # Ajoute '_PG' si le mode est 'Par Match'
+    st.markdown(f"## 🏀 Statistiques Offensives ({label} - {mode})") # Titre de la section
 
     stats = {
         "Points": "PTS",
-        "Assists": "AST",
-        "3-Pointers Made": "FG3M",
-        "Free Throws Made": "FTM"
-    }
+        "Passes Décisives": "AST",
+        "Tirs à 3 Points Réussis": "FG3M",
+        "Lancers Francs Réussis": "FTM"
+    } # Dictionnaire des statistiques offensives à afficher
 
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2) # Crée 2 colonnes pour l'affichage des statistiques
+    # Itère sur les statistiques et les colonnes pour les afficher
     for (title, col_name), col in zip(stats.items(), [col1, col2, col1, col2]):
+        # Récupère les 5 meilleurs joueurs pour la statistique actuelle
         top_data = df[["PLAYER_NAME", "TEAM", col_name + suffix]].sort_values(by=col_name + suffix, ascending=False).head(5)
-        if view_mode == "Table":
-            col.markdown(f"### {title} {mode}")
-            col.dataframe(top_data, hide_index=True, use_container_width=True)
+        if view_mode == "Tableau":
+            col.markdown(f"### {title} {mode}") # Affiche le titre de la statistique
+            col.dataframe(top_data, hide_index=True, use_container_width=True) # Affiche les données dans un tableau
         else:
+            # Génère et affiche un diagramme en barres personnalisé
             fig = custom_bar_chart(top_data, col_name + suffix, f"{title}")
             col.plotly_chart(fig, use_container_width=True)
 
 def show_defense(df, label, mode, view_mode):
-    suffix = "_PG" if mode == "Per Game" else ""
-    st.markdown(f"## 🛡️ Defensive Statistics ({label} - {mode})")
+    """
+    Affiche les statistiques défensives des joueurs.
+    """
+    suffix = "_PG" if mode == "Par Match" else "" # Ajoute '_PG' si le mode est 'Par Match'
+    st.markdown(f"## 🛡️ Statistiques Défensives ({label} - {mode})") # Titre de la section
 
     stats = {
-        "Total Rebounds": "REB",
-        "Defensive Rebounds": "DREB",
-        "Blocks": "BLK",
-        "Steals": "STL"
-    }
+        "Rebonds Totaux": "REB",
+        "Rebonds Défensifs": "DREB",
+        "Contres": "BLK",
+        "Interceptions": "STL"
+    } # Dictionnaire des statistiques défensives à afficher
 
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2) # Crée 2 colonnes pour l'affichage des statistiques
+    # Itère sur les statistiques et les colonnes pour les afficher
     for (title, col_name), col in zip(stats.items(), [col1, col2, col1, col2]):
+        # Récupère les 5 meilleurs joueurs pour la statistique actuelle
         top_data = df[["PLAYER_NAME", "TEAM", col_name + suffix]].sort_values(by=col_name + suffix, ascending=False).head(5)
-        if view_mode == "Table":
-            col.markdown(f"### {title} {mode}")
-            col.dataframe(top_data, hide_index=True, use_container_width=True)
+        if view_mode == "Tableau":
+            col.markdown(f"### {title} {mode}") # Affiche le titre de la statistique
+            col.dataframe(top_data, hide_index=True, use_container_width=True) # Affiche les données dans un tableau
         else:
+            # Génère et affiche un diagramme en barres personnalisé
             fig = custom_bar_chart(top_data, col_name + suffix, f"{title}")
             col.plotly_chart(fig, use_container_width=True)
-            
+
 # -------------------------------
-# Display According to Filters
+# Affichage selon les Filtres
 # -------------------------------
 if metric_filter == "Leaders":
+    # Affiche les leaders pour les statistiques offensives et défensives
     show_offense(df, season_filter, stat_mode, view_mode)
-    st.divider()
+    st.divider() # Ajoute un séparateur visuel
     show_defense(df, season_filter, stat_mode, view_mode)
 
 elif metric_filter == "Top 30":
+    # Sélecteur de statistiques pour afficher le Top 30 des joueurs
     stat_choice = st.selectbox(
-        "Select a statistic",
+        "Sélectionnez une statistique",
         [
             "Points",
-            "Assists",
-            "Total Rebounds",
-            "Offensive Rebounds",
-            "Defensive Rebounds",
+            "Passes Décisives",
+            "Rebonds Totaux",
+            "Rebonds Offensifs",
+            "Rebonds Défensifs",
             "Minutes",
-            "3-Pointers Made",
-            "Free Throws Made",
-            "Blocks",
-            "Steals",
-            "Turnovers",
+            "Tirs à 3 Points Réussis",
+            "Lancers Francs Réussis",
+            "Contres",
+            "Interceptions",
+            "Pertes de Balle",
         ]
     )
-    suffix = "_PG" if stat_mode == "Per Game" else ""
+    suffix = "_PG" if stat_mode == "Par Match" else "" # Ajoute '_PG' si le mode est 'Par Match'
+    # Mappage des noms de statistiques à leurs colonnes dans le DataFrame
     stat_map = {
         "Points": "PTS",
-        "Assists": "AST",
-        "Total Rebounds": "REB",
-        "Offensive Rebounds": "OREB",
-        "Defensive Rebounds": "DREB",
+        "Passes Décisives": "AST",
+        "Rebonds Totaux": "REB",
+        "Rebonds Offensifs": "OREB",
+        "Rebonds Défensifs": "DREB",
         "Minutes": "MIN",
-        "3-Pointers Made": "FG3M",
-        "Free Throws Made": "FTM",
-        "Blocks": "BLK",
-        "Steals": "STL",
-        "Turnovers": "TOV",
+        "Tirs à 3 Points Réussis": "FG3M",
+        "Lancers Francs Réussis": "FTM",
+        "Contres": "BLK",
+        "Interceptions": "STL",
+        "Pertes de Balle": "TOV",
     }
 
+    # Construit le nom de la colonne à partir de la statistique choisie et du suffixe de mode
     chosen_col = stat_map[stat_choice] + suffix
+    # Récupère le Top 30 des joueurs pour la statistique choisie
     top30 = (
         df[["PLAYER_NAME", "TEAM", chosen_col]]
         .sort_values(by=chosen_col, ascending=False)
         .head(30)
     )
 
-    st.markdown(f"## 🔥 Top 30 {stat_choice} ({stat_mode}) - {season_filter}")
-    st.dataframe(top30, hide_index=True, use_container_width=True)
+    st.markdown(f"## 🔥 Top 30 {stat_choice} ({stat_mode}) - {season_filter}") # Titre du Top 30
+    st.dataframe(top30, hide_index=True, use_container_width=True) # Affiche le Top 30 dans un tableau
 
-elif metric_filter == "Full Data":
-    st.markdown(f"## 📊 {season_filter} — Full Data (Field Parameter Style)")
+elif metric_filter == "Données Complètes":
+    st.markdown(f"## 📊 {season_filter} — Données Complètes (Style de Paramètre de Champ)") # Titre de la section
 
-    # Step 1: available columns except PLAYER_NAME
+    # Étape 1 : Récupère toutes les colonnes disponibles, sauf "PLAYER_NAME"
     available_fields = [col for col in df.columns if col != "PLAYER_NAME"]
 
-    # Step 2: Add "Select All" option at the top
-    multiselect_options = ["Select All"] + available_fields
+    # Étape 2 : Ajoute l'option "Tout sélectionner" en haut de la liste
+    multiselect_options = ["Tout sélectionner"] + available_fields
 
-    # Step 3: multiselect widget
+    # Étape 3 : Widget de sélection multiple pour les colonnes à afficher
     selected_fields = st.multiselect(
-        "Select columns to display",
+        "Sélectionnez les colonnes à afficher",
         options=multiselect_options,
-        default=available_fields[:3]
+        default=available_fields[:3] # Sélectionne les 3 premières colonnes par défaut
     )
 
-    # Step 4: If "Select All" is selected → replace with all fields
-    if "Select All" in selected_fields:
-        selected_fields = available_fields  # all real fields
+    # Étape 4 : Si "Tout sélectionner" est choisi, remplace par toutes les colonnes disponibles
+    if "Tout sélectionner" in selected_fields:
+        selected_fields = available_fields  # Toutes les colonnes réelles
 
-    # Step 5: show table
+    # Étape 5 : Affiche le tableau avec les colonnes sélectionnées
     if selected_fields:
-        df_view = df[["PLAYER_NAME"] + selected_fields]
-        st.dataframe(df_view, hide_index=True, use_container_width=True)
+        df_view = df[["PLAYER_NAME"] + selected_fields] # Construit le DataFrame à afficher
+        st.dataframe(df_view, hide_index=True, use_container_width=True) # Affiche le DataFrame
     else:
-        st.info("Please select at least one column to display. The Player Name is selected by default")
+        st.info("Veuillez sélectionner au moins une colonne à afficher. Le Nom du Joueur est sélectionné par défaut.") # Message si aucune colonne n'est choisie

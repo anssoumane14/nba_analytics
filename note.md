@@ -1,6 +1,6 @@
 => General 
-1) remove the emoji and remplacing by icons
-2) translating in french ?
+1) remove the emoji and remplacing by icons => no icon for the delivery
+2) translating in french 
 3) documentatiing in french 
 - business part
 - + coding part

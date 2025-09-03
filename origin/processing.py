@@ -1,29 +1,34 @@
 # -*- coding: utf-8 -*-
-"""Outil GM NBA"""
+"""NBA GM Tool"""
 
 # -------------------------------
 # Imports
 # -------------------------------
 from nba_api.stats.static import teams, players
 from nba_api.stats.endpoints import commonteamroster, playercareerstats, leaguedashplayerstats
+#import requests
+#from bs4 import BeautifulSoup
 import pandas as pd
 import streamlit as st
-st.title("Traitement des Données") # Titre affiché par Streamlit pour cette étape de traitement
+#import duckdb as db
+st.title("Data Processing")
 
 # -------------------------------
-# Acquisition des Données Initiales
+# Get NBA Teams
 # -------------------------------
-
-# Récupération des équipes NBA
 nba_teams = teams.get_teams()
 df_teams = pd.DataFrame(nba_teams)
-#print(df_teams.head()) # Afficher les premières lignes pour vérification (commenté pour la production)
+#print(df_teams.head())
 
 
-# Récupération des statistiques des joueurs pour la Saison Régulière 2024-25
+# -------------------------------
+# Get Regular Season Player Stats
+# -------------------------------
 df_players = leaguedashplayerstats.LeagueDashPlayerStats(season='2024-25').get_data_frames()[0]
 
-# Filtrer uniquement les équipes NBA (exclut les équipes non-NBA comme les joueuses WNBA, ce projet étant axé sur la NBA masculine)
+
+
+# Filter only NBA teams (avoid non-NBA teams if any)
 teams_nba = [
     'ATL', 'BOS', 'BKN', 'CHA', 'CHI', 'CLE', 'DAL', 'DEN', 'DET',
     'GSW', 'HOU', 'IND', 'LAC', 'LAL', 'MEM', 'MIA', 'MIL', 'MIN',
@@ -31,25 +36,25 @@ teams_nba = [
     'TOR', 'UTA', 'WAS'
 ]
 df_nba = df_players[df_players["TEAM_ABBREVIATION"].isin(teams_nba)].copy()
-# Filtrer les joueurs avec un nom valide (non nul ou 'None')
 df_nba = df_nba[(df_nba["PLAYER_NAME"].notna()) & (df_nba["PLAYER_NAME"] != "None")]
 df_nba.reset_index(drop=True, inplace=True)
 
-#st.dataframe(df_nba) # Afficher le DataFrame filtré pour vérification (commenté pour la production)
+#st.dataframe(df_nba)
 
 
-# Sélection des colonnes pertinentes pour le DataFrame final des joueurs de saison régulière
+# Final NBA players DataFrame
 df_reg_season_players = df_nba[['PLAYER_ID','PLAYER_NAME','NICKNAME', 'TEAM_ABBREVIATION',
                          'AGE', 'GP', 'W', 'L', 'W_PCT', 'MIN', 'FGM', 'FGA',
-                         'FG_PCT', 'FG3M', 'FG3A', 'FG3_PCT', 'FTM', 'FTA',
+                         'FG_PCT', 'FG3M', 'FG3A', 'FG3_PCT', 'FTM', 'FTA', 
                          'FT_PCT', 'PTS', 'OREB', 'DREB', 'REB', 'AST', 'TOV',
                          'STL', 'BLK', 'PLUS_MINUS']]
 
-# -------------------------------
-# Calcul des Statistiques par Match
-# -------------------------------
 
-# Ajouter les colonnes de statistiques "par match" (elles sont plus utilisées pour l'analyse)
+
+
+
+### evolution creer une fonction 
+# Add per-game columns for main stats
 df_reg_season_players['MIN_PG'] = (df_reg_season_players['MIN'] / df_reg_season_players['GP']).round(1)
 df_reg_season_players['FGM_PG'] = (df_reg_season_players['FGM'] / df_reg_season_players['GP']).round(1)
 df_reg_season_players['FGA_PG'] = (df_reg_season_players['FGA'] / df_reg_season_players['GP']).round(1)
@@ -67,31 +72,35 @@ df_reg_season_players['STL_PG'] = (df_reg_season_players['STL'] / df_reg_season_
 df_reg_season_players['BLK_PG'] = (df_reg_season_players['BLK'] / df_reg_season_players['GP']).round(1)
 df_reg_season_players['PLUS_MINUS_PG'] = (df_reg_season_players['PLUS_MINUS'] / df_reg_season_players['GP']).round(1)
 
-#st.dataframe(df_reg_season_players[df_reg_season_players["PLAYER_NAME"]=="Jayson Tatum"]) # Exemple de vérification
 
-# Sauvegarder le DataFrame des joueurs de saison régulière
+#st.dataframe(df_reg_season_players[df_reg_season_players["PLAYER_NAME"]=="Jayson Tatum"])
+
+
 df_reg_season_players.to_excel("df_reg_season_players.xlsx", index=False)
 
 
-# Récupération des statistiques des joueurs pour les Playoffs 2024-25
+# -------------------------------
+# Get Playoff Player Stats
+# -------------------------------
 df_playoff = leaguedashplayerstats.LeagueDashPlayerStats(
     season='2024-25',
-    season_type_all_star='Playoffs' # Spécifie le type de saison (Playoffs)
+    season_type_all_star='Playoffs'
 ).get_data_frames()[0]
 
-# Conserver uniquement les joueurs NBA avec des noms valides (comme pour la saison régulière)
+# Keep only NBA players with valid names
 df_playoff = df_playoff[df_playoff["TEAM_ABBREVIATION"].isin(teams_nba)].copy()
 df_playoff = df_playoff[(df_playoff["PLAYER_NAME"].notna()) & (df_playoff["PLAYER_NAME"] != "None")]
 df_playoff.reset_index(drop=True, inplace=True)
 
-# Sélection des colonnes pertinentes pour le DataFrame final des joueurs de playoffs
+# Final Playoff players DataFrame
 df_playoff_players = df_playoff[['PLAYER_ID','PLAYER_NAME','NICKNAME', 'TEAM_ABBREVIATION',
                          'AGE', 'GP', 'W', 'L', 'W_PCT', 'MIN', 'FGM', 'FGA',
-                         'FG_PCT', 'FG3M', 'FG3A', 'FG3_PCT', 'FTM', 'FTA',
+                         'FG_PCT', 'FG3M', 'FG3A', 'FG3_PCT', 'FTM', 'FTA', 
                          'FT_PCT', 'PTS', 'OREB', 'DREB', 'REB', 'AST', 'TOV',
                          'STL', 'BLK', 'PLUS_MINUS']]
 
-# Ajouter les colonnes de statistiques "par match" pour les playoffs
+### evolution creer une fonction 
+# Add per-game columns for main stats
 df_playoff_players['MIN_PG'] = (df_playoff_players['MIN'] / df_playoff_players['GP']).round(1)
 df_playoff_players['FGM_PG'] = (df_playoff_players['FGM'] / df_playoff_players['GP']).round(1)
 df_playoff_players['FGA_PG'] = (df_playoff_players['FGA'] / df_playoff_players['GP']).round(1)
@@ -109,64 +118,104 @@ df_playoff_players['STL_PG'] = (df_playoff_players['STL'] / df_playoff_players['
 df_playoff_players['BLK_PG'] = (df_playoff_players['BLK'] / df_playoff_players['GP']).round(1)
 df_playoff_players['PLUS_MINUS_PG'] = (df_playoff_players['PLUS_MINUS'] / df_playoff_players['GP']).round(1)
 
-# Sauvegarder le DataFrame des joueurs de playoffs
+
+
+# Save to Excel
 df_playoff_players.to_excel("df_playoff_players.xlsx", index=False)
 
 
 # -------------------------------
-# Ajout des Noms Complets des Équipes
+# Add TEAM column with full team names
 # -------------------------------
 
-# Dictionnaire de mappage des abréviations d'équipes NBA vers leurs noms complets
 nba_teams_dict = {
-    'GSW': 'Golden State Warriors', 'PHI': 'Philadelphia 76ers', 'DEN': 'Denver Nuggets',
-    'HOU': 'Houston Rockets', 'BOS': 'Boston Celtics', 'MIL': 'Milwaukee Bucks',
-    'DAL': 'Dallas Mavericks', 'PHO': 'Phoenix Suns', 'NYK': 'New York Knicks',
-    'LAL': 'Los Angeles Lakers', 'LAC': 'Los Angeles Clippers', 'SAC': 'Sacramento Kings',
-    'CLE': 'Cleveland Cavaliers', 'UTA': 'Utah Jazz', 'ATL': 'Atlanta Hawks',
-    'MIN': 'Minnesota Timberwolves', 'IND': 'Indiana Pacers', 'NOP': 'New Orleans Pelicans',
-    'MEM': 'Memphis Grizzlies', 'TOR': 'Toronto Raptors', 'ORL': 'Orlando Magic',
-    'DET': 'Detroit Pistons', 'OKC': 'Oklahoma City Thunder', 'BRK': 'Brooklyn Nets',
-    'CHO': 'Charlotte Hornets', 'MIA': 'Miami Heat', 'SAS': 'San Antonio Spurs',
-    'POR': 'Portland Trail Blazers', 'WAS': 'Washington Wizards', 'CHI': 'Chicago Bulls'
+    'GSW': 'Golden State Warriors',
+    'PHI': 'Philadelphia 76ers',
+    'DEN': 'Denver Nuggets',
+    'HOU': 'Houston Rockets',
+    'BOS': 'Boston Celtics',
+    'MIL': 'Milwaukee Bucks',
+    'DAL': 'Dallas Mavericks',
+    'PHO': 'Phoenix Suns',
+    'NYK': 'New York Knicks',
+    'LAL': 'Los Angeles Lakers',
+    'LAC': 'Los Angeles Clippers',
+    'SAC': 'Sacramento Kings',
+    'CLE': 'Cleveland Cavaliers',
+    'UTA': 'Utah Jazz',
+    'ATL': 'Atlanta Hawks',
+    'MIN': 'Minnesota Timberwolves',
+    'IND': 'Indiana Pacers',
+    'NOP': 'New Orleans Pelicans',
+    'MEM': 'Memphis Grizzlies',
+    'TOR': 'Toronto Raptors',
+    'ORL': 'Orlando Magic',
+    'DET': 'Detroit Pistons',
+    'OKC': 'Oklahoma City Thunder',
+    'BRK': 'Brooklyn Nets',
+    'CHO': 'Charlotte Hornets',
+    'MIA': 'Miami Heat',
+    'SAS': 'San Antonio Spurs',
+    'POR': 'Portland Trail Blazers',
+    'WAS': 'Washington Wizards',
+    'CHI': 'Chicago Bulls'
 }
 
-# Dictionnaire de mappage inverse (noms complets vers abréviations)
+
 nba_teams_dict_inverse = {
-    'Golden State Warriors': 'GSW', 'Philadelphia 76ers': 'PHI', 'Denver Nuggets': 'DEN',
-    'Houston Rockets': 'HOU', 'Boston Celtics': 'BOS', 'Milwaukee Bucks': 'MIL',
-    'Dallas Mavericks': 'DAL', 'Phoenix Suns': 'PHO', 'New York Knicks': 'NYK',
-    'Los Angeles Lakers': 'LAL', 'Los Angeles Clippers': 'LAC', 'Sacramento Kings': 'SAC',
-    'Cleveland Cavaliers': 'CLE', 'Utah Jazz': 'UTA', 'Atlanta Hawks': 'ATL',
-    'Minnesota Timberwolves': 'MIN', 'Indiana Pacers': 'IND', 'New Orleans Pelicans': 'NOP',
-    'Memphis Grizzlies': 'MEM', 'Toronto Raptors': 'TOR', 'Orlando Magic': 'ORL',
-    'Detroit Pistons': 'DET', 'Oklahoma City Thunder': 'OKC', 'Brooklyn Nets': 'BRK',
-    'Charlotte Hornets': 'CHO', 'Miami Heat': 'MIA', 'San Antonio Spurs': 'SAS',
-    'Portland Trail Blazers': 'POR', 'Washington Wizards': 'WAS', 'Chicago Bulls': 'CHI'
+    'Golden State Warriors': 'GSW',
+    'Philadelphia 76ers': 'PHI',
+    'Denver Nuggets': 'DEN',
+    'Houston Rockets': 'HOU',
+    'Boston Celtics': 'BOS',
+    'Milwaukee Bucks': 'MIL',
+    'Dallas Mavericks': 'DAL',
+    'Phoenix Suns': 'PHO',
+    'New York Knicks': 'NYK',
+    'Los Angeles Lakers': 'LAL',
+    'Los Angeles Clippers': 'LAC',
+    'Sacramento Kings': 'SAC',
+    'Cleveland Cavaliers': 'CLE',
+    'Utah Jazz': 'UTA',
+    'Atlanta Hawks': 'ATL',
+    'Minnesota Timberwolves': 'MIN',
+    'Indiana Pacers': 'IND',
+    'New Orleans Pelicans': 'NOP',
+    'Memphis Grizzlies': 'MEM',
+    'Toronto Raptors': 'TOR',
+    'Orlando Magic': 'ORL',
+    'Detroit Pistons': 'DET',
+    'Oklahoma City Thunder': 'OKC',
+    'Brooklyn Nets': 'BRK',
+    'Charlotte Hornets': 'CHO',
+    'Miami Heat': 'MIA',
+    'San Antonio Spurs': 'SAS',
+    'Portland Trail Blazers': 'POR',
+    'Washington Wizards': 'WAS',
+    'Chicago Bulls': 'CHI'
 }
 
-# Insérer la colonne "TEAM" (nom complet) dans les DataFrames des joueurs
+
 df_reg_season_players.insert(
-    2,  # Position d'insertion (après TEAM_ABBREVIATION)
+    2,  # position after TEAM_ABBREVIATION
     "TEAM",
     df_reg_season_players["TEAM_ABBREVIATION"].apply(lambda abv: nba_teams_dict.get(abv, "Unknown"))
 )
 
 df_playoff_players.insert(
-    2, # Position d'insertion
+    2,
     "TEAM",
     df_playoff_players["TEAM_ABBREVIATION"].apply(lambda abv: nba_teams_dict.get(abv, "Unknown"))
 )
 
+#Show a preview
 #st.dataframe(df_reg_season_players[['PLAYER_NAME', 'TEAM_ABBREVIATION', 'TEAM', 'PTS_PG']].head())
 #st.dataframe(df_playoff_players[['PLAYER_NAME', 'TEAM_ABBREVIATION', 'TEAM', 'PTS_PG']].head())
 
 
 # -------------------------------
-# Chargement et Préparation des Sources Excel Externes
+# Load Excel Sources
 # -------------------------------
-
-# Charger les fichiers Excel contenant des données complémentaires
 df_western_conf_standing = pd.read_excel("excel_source/western_conf_standing.xlsx")
 df_eastern_conf_standing = pd.read_excel("excel_source/eastern_conf_standing.xlsx")
 df_nba_team_playoff_stats_pg = pd.read_excel("excel_source/nba_team_playoff_stats_pg.xlsx")
@@ -177,25 +226,26 @@ df_nba_team_reg_season_ratings = pd.read_excel("excel_source/nba_team_reg_season
 #st.dataframe(df_nba_team_reg_season_ratings)
 
 
-# Chargement de l'historique des champions NBA
+
+# Champion history
 df_nba_champion = pd.read_excel('excel_source/nba_champion.xlsx')
 
 #st.dataframe(df_nba_champion)
 
-# Supprimer une colonne inutile ("Unnamed: 5") du DataFrame des champions
+
 df_nba_champion.drop("Unnamed: 5", axis=1, inplace=True)
 
-# Filtrer les colonnes pertinentes pour les statistiques avancées des équipes (les plus utilisées et pertinentes)
-df_nba_team_playoff_advanced_stats = df_nba_team_playoff_advanced_stats[['Rk', 'Tm', 'Age', 'W', 'L',
-                                                                         'W/L%', 'ORtg', 'DRtg', 'NRtg',
+# Filter advanced stats columns
+df_nba_team_playoff_advanced_stats = df_nba_team_playoff_advanced_stats[['Rk', 'Tm', 'Age', 'W', 'L', 
+                                                                         'W/L%', 'ORtg', 'DRtg', 'NRtg', 
                                                                          'Pace', 'TS%', 'eFG%']]
-df_nba_team_reg_season_ratings = df_nba_team_reg_season_ratings[['Rk', 'Team', 'Conf', 'Div',
+df_nba_team_reg_season_ratings = df_nba_team_reg_season_ratings[['Rk', 'Team', 'Conf', 'Div', 
                                                                  'W', 'L', 'W/L%', 'ORtg', 'DRtg','NRtg']]
 
 #st.dataframe(df_nba_players_salaries)
 
 
-# Ré-indexer les DataFrames en utilisant la colonne "Rk" (Rang) comme index
+# Re-indexing
 dfs = [df_nba_players_salaries, df_nba_team_playoff_stats_pg,
        df_nba_team_playoff_advanced_stats, df_nba_team_reg_season_ratings]
 for df in dfs:
@@ -204,9 +254,10 @@ for df in dfs:
 #st.dataframe(df_nba_team_playoff_advanced_stats)
 
 
-# Renommer les colonnes de tous les DataFrames pour uniformisation (remplacer les espaces par '_' et mettre en majuscules)
+
+# Rename columns (replace spaces with _ and uppercase)
 dfs = [df_western_conf_standing, df_eastern_conf_standing, df_nba_team_playoff_stats_pg,
-       df_nba_team_playoff_advanced_stats, df_nba_players_salaries,
+       df_nba_team_playoff_advanced_stats, df_nba_players_salaries, 
        df_nba_team_reg_season_ratings, df_nba_champion]
 for df in dfs:
     df.columns = [col.replace(" ", "_").upper() for col in df.columns]
@@ -215,7 +266,8 @@ for df in dfs:
 #st.dataframe(df_western_conf_standing)
 
 
-# Ajouter un indicateur de participation aux Playoffs pour les classements de conférence
+
+# Add Playoff Team flag
 df_western_conf_standing.insert(1, "PLAYOFF_TEAM",
     df_western_conf_standing["WESTERN_CONFERENCE"].apply(lambda x: "*" in str(x)))
 df_eastern_conf_standing.insert(1, "PLAYOFF_TEAM",
@@ -224,25 +276,27 @@ df_eastern_conf_standing.insert(1, "PLAYOFF_TEAM",
 #st.dataframe(df_eastern_conf_standing)
 
 
-# Supprimer l'astérisque '*' des noms d'équipes dans les classements (utilisé pour indiquer les équipes de playoffs)
+#
+# Remove * from team names
 df_western_conf_standing["WESTERN_CONFERENCE"] = df_western_conf_standing["WESTERN_CONFERENCE"].str.replace("*","")
 df_eastern_conf_standing["EASTERN_CONFERENCE"] = df_eastern_conf_standing["EASTERN_CONFERENCE"].str.replace("*","")
 
 #st.dataframe(df_eastern_conf_standing)
 
 
-# Renommer la colonne des noms d'équipe pour uniformité
+# Rename TEAM column
 df_western_conf_standing.rename(columns={"WESTERN_CONFERENCE": "TEAM"}, inplace=True)
 df_eastern_conf_standing.rename(columns={"EASTERN_CONFERENCE": "TEAM"}, inplace=True)
 df_nba_team_playoff_stats_pg.rename(columns={"TM": "TEAM"}, inplace=True)
 df_nba_team_playoff_advanced_stats.rename(columns={"TM": "TEAM"}, inplace=True)
 
 
+
 # -------------------------------
-# Harmonisation des Identifiants d'Équipe (Abréviations et Noms Complets)
+# Add missing TEAM or TM columns
 # -------------------------------
 
-# 1) Pour les DataFrames ayant la colonne "TEAM" (nom complet), ajouter "TM" (abréviation)
+# 1) TEAM -> add TM
 dfs_with_team = [df_western_conf_standing,
                  df_eastern_conf_standing,
                  df_nba_team_playoff_stats_pg,
@@ -252,45 +306,44 @@ dfs_with_team = [df_western_conf_standing,
 for df in dfs_with_team:
     df.insert(1, "TM", df["TEAM"].apply(lambda x: nba_teams_dict_inverse.get(x, "Unknown")))
 
-# 2) Pour les DataFrames ayant "TM" (abréviation), ajouter "TEAM" (nom complet)
+# 2) TM -> add TEAM
 df_nba_players_salaries.insert(
-    1,
-    "TEAM",
+    1, 
+    "TEAM", 
     df_nba_players_salaries["TM"].apply(lambda x: nba_teams_dict.get(x, "Unknown"))
 )
 
-# 3) Cas spécifique des Champions : ajouter les abréviations pour les champions et finalistes
+# 3) Special case: Champions
 df_nba_champion.insert(
-    4,
-    "TM_CHAMP",
+    4, 
+    "TM_CHAMP", 
     df_nba_champion["CHAMPION"].apply(lambda x: nba_teams_dict_inverse.get(x, "Unknown"))
 )
 df_nba_champion.insert(
-    5,
-    "TM_RUNNER_UP",
+    5, 
+    "TM_RUNNER_UP", 
     df_nba_champion["RUNNER-UP"].apply(lambda x: nba_teams_dict_inverse.get(x, "Unknown"))
 )
 
-# 4) Assurer la cohérence pour les joueurs de saison régulière et de playoffs
+# 4) Ensure consistency for regular season and playoffs
 df_reg_season_players.insert(
     2,
     "TM",
-    df_reg_season_players["TEAM_ABBREVIATION"].apply(lambda abv: abv) # La colonne abréviation existe déjà
+    df_reg_season_players["TEAM_ABBREVIATION"].apply(lambda abv: abv)  # already has abv
 )
 
 df_playoff_players.insert(
     2,
     "TM",
-    df_playoff_players["TEAM_ABBREVIATION"].apply(lambda abv: abv) # La colonne abréviation existe déjà
+    df_playoff_players["TEAM_ABBREVIATION"].apply(lambda abv: abv)
 )
 
-#st.dataframe(df_nba_players_salaries) # Vérification des salaires avec la nouvelle colonne TEAM
 
+st.dataframe(df_nba_players_salaries)
 
 # -------------------------------
-# Export des DataFrames Finaux
+# Export Final DataFrames
 # -------------------------------
-# Le but de ce fichier est de préparer les données pour l'application, donc l'export est la dernière étape.
 dataframes = {
     "data/df_western_conf_standing.xlsx": df_western_conf_standing,
     "data/df_eastern_conf_standing.xlsx": df_eastern_conf_standing,
@@ -305,4 +358,4 @@ dataframes = {
 
 for filename, df in dataframes.items():
     df.to_excel(filename, index=False)
-    print(f"Exporté : {filename}")
+    print(f"Exported: {filename}")

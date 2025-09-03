@@ -3,10 +3,7 @@ pandas==2.3.1
 numpy>=1.26,<2.0
 plotly==5.22.0
 openpyxl==3.1.5
-
-# Only keep this if you still use option_menu in nav.py
 streamlit-option-menu==0.4.0
-
 nba_api==1.7.0
 bottleneck==1.5.0
 duckdb==1.3.2
