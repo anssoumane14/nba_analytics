@@ -185,7 +185,7 @@ else:
 # SAISON (REG vs PO) + DATAFRAME COURANT
 # =========================================================
 season_filter = st.radio(
-    "Type de Saison",
+    "Filtrez les Statistiques selon la partie de la saison",
     ["Saison Régulière", "Playoffs"],
     horizontal=True,
     key="season_filter_team"

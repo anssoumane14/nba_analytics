@@ -2,7 +2,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from nav import navbar
+
 
 # -------------------------------
 # Afficher la barre de navigation
@@ -27,15 +27,22 @@ st.write("Sélectionnez deux équipes et des joueurs pour simuler un échange. L
 
 
 
-# -------------------------------
-# Charger les données
-# -------------------------------
-df_ouest = pd.read_excel("data/df_western_conf_standing.xlsx")
-df_est = pd.read_excel("data/df_eastern_conf_standing.xlsx")
-df_classements_equipe = pd.read_excel("data/df_nba_team_reg_season_ratings.xlsx")
-df_joueurs_reg = pd.read_excel("data/df_reg_season_players_filtered.xlsx")
-df_joueurs_po = pd.read_excel("data/df_playoff_players_filtered.xlsx")
-df_salaires = pd.read_excel("data/df_nba_players_salaries.xlsx")
+# =========================================================
+# CACHES
+# =========================================================
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_trade_machine_data():
+    df_ouest        = pd.read_excel("data/df_western_conf_standing.xlsx")
+    df_est          = pd.read_excel("data/df_eastern_conf_standing.xlsx")
+    df_classements  = pd.read_excel("data/df_nba_team_reg_season_ratings.xlsx")
+    df_joueurs_reg  = pd.read_excel("data/df_reg_season_players_filtered.xlsx")
+    df_joueurs_po   = pd.read_excel("data/df_playoff_players_filtered.xlsx")
+    df_salaires     = pd.read_excel("data/df_nba_players_salaries.xlsx")
+    return df_ouest, df_est, df_classements, df_joueurs_reg, df_joueurs_po, df_salaires
+
+# Utilisation
+df_ouest, df_est, df_classements_equipe, df_joueurs_reg, df_joueurs_po, df_salaires = load_trade_machine_data()
+
 
 # -------------------------------
 # Fonctions
@@ -158,7 +165,7 @@ with colB:
 st.divider()
 st.subheader("Validation de l'échange")
 
-clique = st.button("✅ Essayer cet échange")
+clique = st.button("Essayer cet échange")
 
 if clique:
     # Vérifications de base
