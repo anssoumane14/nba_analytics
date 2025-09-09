@@ -11,11 +11,11 @@ st.set_page_config(layout="wide")
 # -------------------------------
 # --- Top navbar (official) ---
 c1, c2, c3, c4,c5 = st.columns(5)
-with c1: st.page_link("home.py",                   label="🏠 Home")
-with c2: st.page_link("pages/1_Team.py",           label="🏀 Team")
-with c3: st.page_link("pages/2_Statistics.py",     label="📊 Statistics")
-with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historic")
-with c5: st.page_link("pages/4_Trade_Machine.py",  label="💸 Trade Machine")
+with c1: st.page_link("home.py",                   label=" Home")
+with c2: st.page_link("pages/1_Team.py",           label=" Team")
+with c3: st.page_link("pages/2_Statistics.py",     label=" Statistics")
+with c4: st.page_link("pages/3_Champ_Historic.py", label=" Historic")
+with c5: st.page_link("pages/4_Trade_Machine.py",  label=" Trade Machine")
 
 
 # Load data
@@ -156,7 +156,7 @@ mvp_count = (
 )
 
 st.plotly_chart(
-    custom_bar_chart(mvp_count, "MVP Awards", "FINALS_MVP", "🥇 Top 10 Finals MVP Award Winners", color_col="FINALS_MVP"),
+    custom_bar_chart(mvp_count, "MVP Awards", "FINALS_MVP", " Top 10 Finals MVP Award Winners", color_col="FINALS_MVP"),
     use_container_width=True
 )
 
@@ -176,6 +176,6 @@ team_appearances = (
 )
 
 st.plotly_chart(
-    custom_bar_chart(team_appearances, "Appearances", "Team", "📊 Top 10 Finals Appearances by Team", color_col="Team"),
+    custom_bar_chart(team_appearances, "Appearances", "Team", " Top 10 Finals Appearances by Team", color_col="Team"),
     use_container_width=True
 )

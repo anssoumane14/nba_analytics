@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-from nav import navbar # Importation potentielle de la barre de navigation
 
 # -------------------------------
 # Configuration de la Page
@@ -12,34 +10,39 @@ st.set_page_config(page_title="Tableau de Bord NBA", layout="wide") # Configure 
 # -------------------------------
 # Affichage de la Barre de Navigation
 # -------------------------------
+
 # Note : La barre de navigation est actuellement implémentée directement via st.page_link
-# Pour une implémentation modulable, l'utilisation de la fonction navbar() importée serait envisagée.
 c1, c2, c3, c4,c5 = st.columns(5) # Crée 5 colonnes pour les liens de navigation
-with c1: st.page_link("home.py",                   label="🏠 Accueil") # Lien vers la page d'accueil
-with c2: st.page_link("pages/1_Team.py",           label="🏀 Équipe") # Lien vers la page d'équipe
-with c3: st.page_link("pages/2_Statistics.py",     label="📊 Statistiques") # Lien vers la page de statistiques
-with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historique") # Lien vers la page historique des champions
-with c5: st.page_link("pages/4_Trade_Machine.py",  label="💸 Machine à Trade") # Lien vers la machine à trade
+with c1: st.page_link("home.py",                   label=" Accueil") # Lien vers la page d'accueil
+with c2: st.page_link("pages/1_Team.py",           label=" Équipe") # Lien vers la page d'équipe
+with c3: st.page_link("pages/2_Statistics.py",     label=" Statistiques") # Lien vers la page de statistiques
+with c4: st.page_link("pages/3_Champ_Historic.py", label=" Historique") # Lien vers la page historique des champions
+with c5: st.page_link("pages/4_Trade_Machine.py",  label=" Machine à Trade") # Lien vers la machine à trade
 
 
 # -------------------------------
-# Chargement des Données
+# Chargement des Données (cache) => But : éviter de relire 5 Excel à chaque interaction.
 # -------------------------------
-df_west = pd.read_excel("data/df_western_conf_standing.xlsx") # Charge les classements de la Conférence Ouest
-df_east = pd.read_excel("data/df_eastern_conf_standing.xlsx") # Charge les classements de la Conférence Est
-df_team_ratings = pd.read_excel("data/df_nba_team_reg_season_ratings.xlsx") # Charge les évaluations des équipes de saison régulière
-df_players = pd.read_excel("data/df_reg_season_players_filtered.xlsx") # Charge les données filtrées des joueurs de saison régulière
-df_salaries = pd.read_excel("data/df_nba_players_salaries.xlsx") # Charge les salaires des joueurs
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_data():
+    df_west  = pd.read_excel("data/df_western_conf_standing.xlsx")
+    df_east  = pd.read_excel("data/df_eastern_conf_standing.xlsx")
+    df_team_ratings = pd.read_excel("data/df_nba_team_reg_season_ratings.xlsx")
+    df_players = pd.read_excel("data/df_reg_season_players_filtered.xlsx")
+    df_salaries = pd.read_excel("data/df_nba_players_salaries.xlsx")
+    return df_west, df_east, df_team_ratings, df_players, df_salaries
 
-# Applique un filtre additionnel aux joueurs : uniquement ceux ayant joué plus de 10 matchs et plus de 10 minutes par match
+with st.spinner("Chargement des données..."):
+    df_west, df_east, df_team_ratings, df_players, df_salaries = load_data()
+
+# ton filtrage existant
 df_players = df_players[(df_players["GP"] > 10) & (df_players["MIN_PG"] > 10)]
-
 
 # -------------------------------
 # Titre de la Page
 # -------------------------------
 st.markdown(
-    "<h1 style='text-align: center;'>🏀 Aperçu NBA 2024-25</h1>",
+    "<h1 style='text-align: center;'> Aperçu NBA 2024-25</h1>",
     unsafe_allow_html=True # Permet le rendu HTML
 )
 st.markdown(
@@ -53,17 +56,17 @@ st.markdown(
 # -------------------------------
 # Crée des onglets pour organiser le contenu de la page
 tab1, tab2, tab3, tab4 = st.tabs([
-    "🏆 Classements des Conférences",
-    "⭐ Meilleurs Joueurs",
-    "📊 Évaluations des Équipes",
-    "💰 Salaires"
+    " Classements des Conférences",
+    " Meilleurs Joueurs",
+    " Évaluations des Équipes",
+    " Salaires"
 ])
 
 # -------------------------------
 # Contenu de l'Onglet 1 : Classements des Conférences
 # -------------------------------
 with tab1:
-    st.markdown("## 🏆 Classements des Conférences") # Titre de l'onglet
+    st.markdown("##  Classements des Conférences") # Titre de l'onglet
 
     col1, col2 = st.columns(2) # Crée deux colonnes pour afficher les conférences côte à côte
     with col1:
@@ -77,7 +80,7 @@ with tab1:
 # Contenu de l'Onglet 2 : Meilleurs Joueurs
 # -------------------------------
 with tab2:
-    st.markdown("## ⭐ Top 3 des Joueurs par Métriques Clés") # Titre de l'onglet
+    st.markdown("##  Top 3 des Joueurs par Métriques Clés") # Titre de l'onglet
 
     # Filtre de sélection d'équipe unique avec l'option "Toutes les équipes"
     all_teams = sorted(df_players["TEAM"].dropna().unique()) # Récupère la liste unique des équipes
@@ -101,9 +104,6 @@ with tab2:
 
     # Itère sur chaque métrique pour afficher les 3 meilleurs joueurs
     for label, col_name in metrics.items():
-        if col_name not in df_tp.columns: # Vérifie si la colonne existe dans le DataFrame
-            st.warning(f"La colonne '{col_name}' n'a pas été trouvée dans les données des joueurs.")
-            continue # Passe à la métrique suivante si la colonne est manquante
 
         top3 = (
             df_tp[["PLAYER_NAME", "TEAM", col_name]] # Sélectionne les colonnes Joueur, Équipe et la métrique
@@ -117,60 +117,64 @@ with tab2:
 # Contenu de l'Onglet 3 : Évaluations des Équipes
 # -------------------------------
 with tab3:
-    st.markdown("## 📊 Évaluations de Performance des Équipes (Top 10)") # Titre de l'onglet
+    st.markdown("##  Évaluations de Performance des Équipes (Top 10)") # Titre de l'onglet
 
     col1, col2, col3 = st.columns(3) # Crée trois colonnes pour les différentes évaluations
 
     # Offensive Rating (plus élevé est mieux)
     with col1:
         st.markdown("### Évaluation Offensive") # Sous-titre
-        if "ORTG" in df_team_ratings.columns: # Vérifie si la colonne existe
-            off = df_team_ratings[["TEAM", "ORTG"]].sort_values(by="ORTG", ascending=False).head(10) # Trie et prend les 10 meilleures
-            st.dataframe(off, hide_index=True, use_container_width=True) # Affiche le DataFrame
-        else:
-            st.warning("La colonne 'ORTG' n'a pas été trouvée dans les évaluations des équipes.")
+        off = df_team_ratings[["TEAM", "ORTG"]].sort_values(by="ORTG", ascending=False).head(10) # Trie et prend les 10 meilleures
+        st.dataframe(off, hide_index=True, use_container_width=True) # Affiche le DataFrame
+       
 
     # Defensive Rating (plus faible est mieux → ordre croissant)
     with col2:
         st.markdown("### Évaluation Défensive") # Sous-titre
-        if "DRTG" in df_team_ratings.columns: # Vérifie si la colonne existe
-            deff = df_team_ratings[["TEAM", "DRTG"]].sort_values(by="DRTG", ascending=True).head(10) # Trie et prend les 10 meilleures
-            st.dataframe(deff, hide_index=True, use_container_width=True) # Affiche le DataFrame
-        else:
-            st.warning("La colonne 'DRTG' n'a pas été trouvée dans les évaluations des équipes.")
+        deff = df_team_ratings[["TEAM", "DRTG"]].sort_values(by="DRTG", ascending=True).head(10) # Trie et prend les 10 meilleures
+        st.dataframe(deff, hide_index=True, use_container_width=True) # Affiche le DataFrame
+        
 
     # Net Rating (plus élevé est mieux)
     with col3:
         st.markdown("### Évaluation Nette") # Sous-titre
-        if "NRTG" in df_team_ratings.columns: # Vérifie si la colonne existe
-            net = df_team_ratings[["TEAM", "NRTG"]].sort_values(by="NRTG", ascending=False).head(10) # Trie et prend les 10 meilleures
-            st.dataframe(net, hide_index=True, use_container_width=True) # Affiche le DataFrame
-        else:
-            st.warning("La colonne 'NRTG' n'a pas été trouvée dans les évaluations des équipes.")
+        net = df_team_ratings[["TEAM", "NRTG"]].sort_values(by="NRTG", ascending=False).head(10) # Trie et prend les 10 meilleures
+        st.dataframe(net, hide_index=True, use_container_width=True) # Affiche le DataFrame
 
 # -------------------------------
-# Contenu de l'Onglet 4 : Salaires (filtres simples)
+# Contenu de l'Onglet 4 : Salaires (team -> joueurs)
 # -------------------------------
-
 with tab4:
-    st.markdown("## 💰 Salaires") # Titre de l'onglet
+    st.markdown("## Salaires")
 
-    # Filtre d'équipe
-    team_options = ["Toutes les équipes"] + sorted(df_salaries["TEAM"].dropna().unique()) # Liste des équipes pour le filtre
-    team_sel = st.selectbox("Équipe", team_options, index=0) # Sélecteur d'équipe
+    TEAM_ALL, PLAYER_ALL = "Toutes les équipes", "Tous les joueurs"
 
-    # Filtre le DataFrame par l'équipe sélectionnée
-    df_filtered = df_salaries.copy() # Crée une copie du DataFrame des salaires
-    if team_sel != "Toutes les équipes": # Si une équipe spécifique est choisie
-        df_filtered = df_filtered[df_filtered["TEAM"] == team_sel] # Filtre le DataFrame
+    # 1) Sélecteur Équipe
+    team_options = [TEAM_ALL] + sorted(df_salaries["TEAM"].dropna().unique())
+    team_sel = st.selectbox("Équipe", team_options, index=0, key="sal_team")
 
-    # Filtre joueur (dépend du DataFrame filtré par équipe)
-    player_options = ["Tous les joueurs"] + sorted(df_filtered["PLAYER"].dropna().unique()) # Liste des joueurs pour le filtre
-    player_sel = st.selectbox("Joueur", player_options, index=0) # Sélecteur de joueur
+    # 2) Liste des joueurs dépendante de l'équipe
+    if team_sel == TEAM_ALL:
+        player_options = [PLAYER_ALL] + sorted(df_salaries["PLAYER"].dropna().unique())
+    else:
+        player_options = [PLAYER_ALL] + sorted(
+            df_salaries.loc[df_salaries["TEAM"] == team_sel, "PLAYER"].dropna().unique()
+        )
 
-    # Applique le filtre joueur
-    if player_sel != "Tous les joueurs": # Si un joueur spécifique est choisi
-        df_filtered = df_filtered[df_filtered["PLAYER"] == player_sel] # Filtre le DataFrame
+    # Conserver la sélection joueur si encore valide, sinon reset sur "Tous"
+    prev_player = st.session_state.get("sal_player", PLAYER_ALL)
+    player_index = player_options.index(prev_player) if prev_player in player_options else 0
+    player_sel = st.selectbox("Joueur", player_options, index=player_index, key="sal_player")
 
-    # Affiche le tableau filtré
-    st.dataframe(df_filtered, hide_index=True, use_container_width=True) # Affiche le DataFrame des salaires filtré
+    # 3) Filtrage (sans jamais modifier l’équipe via le joueur)
+    df_filtered = df_salaries
+    if team_sel != TEAM_ALL:
+        df_filtered = df_filtered[df_filtered["TEAM"] == team_sel]
+    if player_sel != PLAYER_ALL:
+        df_filtered = df_filtered[df_filtered["PLAYER"] == player_sel]
+
+    # 4) Affichage
+    if df_filtered.empty:
+        st.info("Aucun résultat pour ces filtres.")
+    else:
+        st.dataframe(df_filtered, hide_index=True, use_container_width=True)

@@ -4,25 +4,24 @@ import pandas as pd
 import plotly.express as px
 from nav import navbar
 
-
 # -------------------------------
 # Afficher la barre de navigation
 # -------------------------------
 # --- Barre de navigation supérieure (officielle) ---
 c1, c2, c3, c4,c5 = st.columns(5)
-with c1: st.page_link("home.py",                   label="🏠 Accueil")
-with c2: st.page_link("pages/1_Team.py",           label="🏀 Équipe")
-with c3: st.page_link("pages/2_Statistics.py",     label="📊 Statistiques")
-with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historique")
-with c5: st.page_link("pages/4_Trade_Machine.py",  label="💸 Machine à Échanges")
+with c1: st.page_link("home.py",                   label=" Accueil")
+with c2: st.page_link("pages/1_Team.py",           label=" Équipe")
+with c3: st.page_link("pages/2_Statistics.py",     label=" Statistiques")
+with c4: st.page_link("pages/3_Champ_Historic.py", label=" Historique")
+with c5: st.page_link("pages/4_Trade_Machine.py",  label=" Machine à Échanges")
 
 
 # -------------------------------
 # Configuration de la page
 # -------------------------------
-st.set_page_config(page_title="Machine à Échanges", layout="wide")
+st.set_page_config(page_title="Machine à Échanges de Joueurs", layout="wide")
 
-st.title("💸 Machine à Échanges NBA")
+st.title(" Machine à Échanges NBA")
 
 st.write("Sélectionnez deux équipes et des joueurs pour simuler un échange. Les salaires seront comparés.")
 
@@ -185,7 +184,7 @@ if clique:
 
             # Vérification de la règle métier
             if diff_pct <= 0.05:
-                st.success("✅ L'échange est valide selon la règle de correspondance des salaires de ±5%.")
+                st.success(" L'échange est valide selon la règle de correspondance des salaires de ±5%.")
             else:
                 # Afficher les plages acceptables
                 a_min, a_max = int(totalA * 0.95), int(totalA * 1.05)
@@ -193,7 +192,7 @@ if clique:
                 st.markdown(
                     f"""
                 <div style="background-color:#ffe6e6; padding:15px; border-radius:10px; border:1px solid #ff4d4d;">
-                    <b>❌ Échange invalide: les totaux diffèrent de plus de 5%.</b><br><br>
+                    <b> Échange invalide: les totaux diffèrent de plus de 5%.</b><br><br>
                     • Pour correspondre à l'<b>Équipe A</b>: le total de l'Équipe B doit être entre
                     <span style="color:#d9534f;">{formater_argent(a_min)}</span> et <span style="color:#d9534f;">{formater_argent(a_max)}</span><br>
                     • Pour correspondre à l'<b>Équipe B</b>: le total de l'Équipe A doit être entre

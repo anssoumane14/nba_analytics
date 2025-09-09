@@ -14,19 +14,23 @@ st.set_page_config(layout="wide") # Configure la mise en page de la page Streaml
 # -------------------------------
 # --- Barre de navigation supérieure (officielle) ---
 c1, c2, c3, c4,c5 = st.columns(5) # Crée 5 colonnes pour les liens de navigation
-with c1: st.page_link("home.py",                   label="🏠 Accueil") # Lien vers la page d'accueil
-with c2: st.page_link("pages/1_Team.py",           label="🏀 Équipe") # Lien vers la page d'équipe
-with c3: st.page_link("pages/2_Statistics.py",     label="📊 Statistiques") # Lien vers la page de statistiques
-with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historique") # Lien vers la page historique des champions
-with c5: st.page_link("pages/4_Trade_Machine.py",  label="💸 Machine à Trade") # Lien vers la machine à trade
-
+with c1: st.page_link("home.py",                   label=" Accueil") # Lien vers la page d'accueil
+with c2: st.page_link("pages/1_Team.py",           label=" Équipe") # Lien vers la page d'équipe
+with c3: st.page_link("pages/2_Statistics.py",     label=" Statistiques") # Lien vers la page de statistiques
+with c4: st.page_link("pages/3_Champ_Historic.py", label=" Historique") # Lien vers la page historique des champions
+with c5: st.page_link("pages/4_Trade_Machine.py",  label=" Machine à Trade") # Lien vers la machine à trade
 
 # -------------------------------
-# Chargement des Données
+# Cache: chargement des données
 # -------------------------------
-# Charge les données filtrées des joueurs pour la saison régulière et les playoffs
-df_reg_season_players = pd.read_excel("data/df_reg_season_players_filtered.xlsx")
-df_playoff_players = pd.read_excel("data/df_playoff_players_filtered.xlsx")
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_stats_data():
+    df_reg = pd.read_excel("data/df_reg_season_players_filtered.xlsx")
+    df_po  = pd.read_excel("data/df_playoff_players_filtered.xlsx")
+    return df_reg, df_po
+
+df_reg_season_players, df_playoff_players = load_stats_data()
+
 
 # -------------------------------
 # Titre de la Page
@@ -93,46 +97,39 @@ df = df_reg_season_players if season_filter == "Saison Régulière" else df_play
 # et plus de 10 minutes par match (MIN_PG).
 df = df[(df["GP"] > 10) & (df["MIN_PG"] > 10)]
 
-# -------------------------------
-# Utilitaire : Fonction de Graphique en Barres Personnalisé
-# -------------------------------
+import matplotlib.pyplot as plt
+
 def custom_bar_chart(data, col_name, title):
-    """
-    Génère un diagramme en barres horizontal personnalisé pour les statistiques des joueurs.
-    """
-    # Trie les données par la colonne spécifiée dans l'ordre décroissant
-    data_sorted = data.sort_values(by=col_name, ascending=False)
+    # Trier les données
+    data_sorted = data.sort_values(by=col_name, ascending=True)  # ascending=True pour affichage du haut vers le bas
+    
+    fig, ax = plt.subplots(figsize=(8, 0.6 * len(data_sorted) + 2))
 
-    # Crée le diagramme en barres avec Plotly Express
-    fig = px.bar(
-        data_sorted,
-        x=col_name, # Valeurs sur l'axe des X
-        y="PLAYER_NAME", # Noms des joueurs sur l'axe des Y
-        orientation="h", # Orientation horizontale
-        color="TEAM", # Couleur des barres par équipe
-        title=title, # Titre du graphique
-        text=col_name, # Texte affiché sur les barres (la valeur de la colonne)
-        category_orders={"PLAYER_NAME": data_sorted["PLAYER_NAME"].tolist()}  # Force l'ordre des catégories sur l'axe Y
-    )
+    # Tracer les barres
+    bars = ax.barh(data_sorted["PLAYER_NAME"], data_sorted[col_name], color="skyblue", edgecolor="black")
 
-    # Met à jour l'apparence des traces (barres)
-    fig.update_traces(
-        texttemplate="%{text}", # Modèle du texte (affiche la valeur numérique)
-        textposition="inside",   # Positionne le texte à l'intérieur de la barre
-        insidetextanchor="end",  # Aligne le texte à la fin de la barre
-        textfont=dict(color="white", size=14, family="Arial") # Style du texte
-    )
+    # Ajouter les valeurs au bout des barres
+    for bar in bars:
+        width = bar.get_width()
+        ax.text(width + 0.5,               # un petit décalage
+                bar.get_y() + bar.get_height()/2,
+                f"{width:.1f}",
+                va="center", ha="left", fontsize=10)
 
-    # Met à jour l'apparence de la mise en page du graphique
-    fig.update_layout(
-        xaxis=dict(showticklabels=False, showgrid=False, zeroline=False), # Cache les étiquettes et grilles de l'axe X
-        yaxis=dict(showgrid=False, zeroline=False), # Cache les grilles de l'axe Y
-        bargap=0.2, # Espacement entre les barres
-        plot_bgcolor="white", # Couleur de fond du graphique
-        showlegend=True # Affiche la légende des équipes
-    )
+    # Enlever l’axe X
+    ax.xaxis.set_visible(False)
 
-    return fig # Retourne l'objet figure Plotly
+    # Ajouter un titre
+    ax.set_title(title, fontsize=14)
+
+    # Fond blanc
+    ax.set_facecolor("white")
+    fig.patch.set_facecolor("white")
+
+    plt.tight_layout()
+    return fig
+
+
 
 # -------------------------------
 # Fonctions d'Affichage des Statistiques
@@ -142,7 +139,7 @@ def show_offense(df, label, mode, view_mode):
     Affiche les statistiques offensives des joueurs.
     """
     suffix = "_PG" if mode == "Par Match" else "" # Ajoute '_PG' si le mode est 'Par Match'
-    st.markdown(f"## 🏀 Statistiques Offensives ({label} - {mode})") # Titre de la section
+    st.markdown(f"##  Statistiques Offensives ({label} - {mode})") # Titre de la section
 
     stats = {
         "Points": "PTS",
@@ -169,7 +166,7 @@ def show_defense(df, label, mode, view_mode):
     Affiche les statistiques défensives des joueurs.
     """
     suffix = "_PG" if mode == "Par Match" else "" # Ajoute '_PG' si le mode est 'Par Match'
-    st.markdown(f"## 🛡️ Statistiques Défensives ({label} - {mode})") # Titre de la section
+    st.markdown(f"##  Statistiques Défensives ({label} - {mode})") # Titre de la section
 
     stats = {
         "Rebonds Totaux": "REB",
@@ -243,7 +240,7 @@ elif metric_filter == "Top 30":
         .head(30)
     )
 
-    st.markdown(f"## 🔥 Top 30 {stat_choice} ({stat_mode}) - {season_filter}") # Titre du Top 30
+    st.markdown(f"##  Top 30 {stat_choice} ({stat_mode}) - {season_filter}") # Titre du Top 30
     st.dataframe(top30, hide_index=True, use_container_width=True) # Affiche le Top 30 dans un tableau
 
 elif metric_filter == "Données Complètes":
