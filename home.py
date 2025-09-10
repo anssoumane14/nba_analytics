@@ -12,7 +12,7 @@ st.set_page_config(page_title="Tableau de Bord NBA", layout="wide") # Configure 
 # -------------------------------
 
 # Note : La barre de navigation est actuellement implémentée directement via st.page_link
-c1, c2, c3, c4,c5 = st.columns(5) # Crée 5 colonnes pour les liens de navigation
+c1, c2, c3, c4,c5= st.columns(5) # Crée 5 colonnes pour les liens de navigation
 with c1: st.page_link("home.py",                   label=" Accueil") # Lien vers la page d'accueil
 with c2: st.page_link("pages/1_Team.py",           label=" Équipe") # Lien vers la page d'équipe
 with c3: st.page_link("pages/2_Statistics.py",     label=" Statistiques") # Lien vers la page de statistiques
