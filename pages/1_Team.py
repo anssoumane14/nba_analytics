@@ -2,7 +2,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from nav import navbar  # si tu veux l'utiliser plus tard
 
 # -------------------------------
 # Configuration de la Page
