@@ -191,22 +191,196 @@ def scrape_salaries() -> pd.DataFrame:
 # Concat raw data
 # -------------------------------------
 
-def concat_raw_data(folder: str, output_file: str):
+def concat_raw_data(folder: str):
     """
     Concatenate all CSVs in a folder into one big file.
-    Missing columns are filled with NaN automatically.
+    Keeps column order from the latest file.
+    Missing columns are filled with NaN.
+    Returns a dataframe (not saved to disk).
     """
     files = [f for f in os.listdir(folder) if f.endswith(".csv")]
-    files = sorted(files)  # ensure chronological order
+    files = sorted(files)  # chronological order
+
+    if not files:
+        print(f"⚠️ No files found in {folder}")
+        return pd.DataFrame()
 
     dfs = []
+    # Reference schema = last file (latest season with most columns)
+    ref_path = os.path.join(folder, files[-1])
+    ref_df = pd.read_csv(ref_path, encoding="utf-8-sig")
+    ref_columns = ref_df.columns.tolist()
+
     for f in files:
         path = os.path.join(folder, f)
         df = pd.read_csv(path, encoding="utf-8-sig")
+        # Align columns with reference schema
+        df = df.reindex(columns=ref_columns, fill_value=pd.NA)
         dfs.append(df)
 
-    df_all = pd.concat(dfs, ignore_index=True, sort=True)  # union of columns
-    os.makedirs("processed_data", exist_ok=True)
-    df_all.to_csv(f"processed_data/{output_file}", index=False, encoding="utf-8-sig")
+    # Concat all with consistent schema
+    df_all = pd.concat(dfs, ignore_index=True)
+    return df_all
 
-    print(f"✅ {output_file} created with {len(df_all)} rows and {len(df_all.columns)} columns.")
+
+
+# -------------------------------------
+# Processing: normalize columns
+# -------------------------------------
+def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normalize column names:
+    - Uppercase
+    - Strip spaces
+    """
+    df.columns = [col.upper().strip() for col in df.columns]
+    return df
+
+
+
+# -------------------------------------
+# Processing: compute per-game stats
+# -------------------------------------
+def compute_per_game(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute per-game stats for numeric columns.
+    Excludes percentage columns.
+    Adds suffix '_PG'.
+    """
+    if "G" not in df.columns:
+        print("⚠️ 'G' (games) column missing, cannot compute per-game stats.")
+        return df
+
+    per_game_df = df.copy()
+    exclude_cols = {"RK", "PLAYER", "TEAM", "TM", "POS", "AGE", "SEASON", "SEASON_TYPE", 
+                    "AWARDS", "TRP-DBL", "FG%", "3P%", "2P%", "FT%", "EFG%","G","GS"}
+
+    # Loop through columns
+    for col in df.columns:
+        if col not in exclude_cols and pd.api.types.is_numeric_dtype(df[col]):
+            per_game_df[col + "_PG"] = (df[col] / df["G"]).round(1)
+
+    return per_game_df
+
+
+
+# -------------------------------------
+# Processing: map team abbreviations to full names
+# -------------------------------------
+def map_team_names(df: pd.DataFrame, abbr_col: str = "TM") -> pd.DataFrame:
+    """
+    Add a full TEAM name column based on abbreviation column.
+    - abbr_col: column containing team abbreviations (default = 'TM')
+    - Adds new column 'TEAM' with full name.
+    """
+    nba_teams_dict = {
+        'GSW': 'Golden State Warriors',
+        'PHI': 'Philadelphia 76ers',
+        'DEN': 'Denver Nuggets',
+        'HOU': 'Houston Rockets',
+        'BOS': 'Boston Celtics',
+        'MIL': 'Milwaukee Bucks',
+        'DAL': 'Dallas Mavericks',
+        'PHO': 'Phoenix Suns',
+        'NYK': 'New York Knicks',
+        'LAL': 'Los Angeles Lakers',
+        'LAC': 'Los Angeles Clippers',
+        'SAC': 'Sacramento Kings',
+        'CLE': 'Cleveland Cavaliers',
+        'UTA': 'Utah Jazz',
+        'ATL': 'Atlanta Hawks',
+        'MIN': 'Minnesota Timberwolves',
+        'IND': 'Indiana Pacers',
+        'NOP': 'New Orleans Pelicans',
+        'MEM': 'Memphis Grizzlies',
+        'TOR': 'Toronto Raptors',
+        'ORL': 'Orlando Magic',
+        'DET': 'Detroit Pistons',
+        'OKC': 'Oklahoma City Thunder',
+        'BRK': 'Brooklyn Nets',
+        'CHO': 'Charlotte Hornets',
+        'MIA': 'Miami Heat',
+        'SAS': 'San Antonio Spurs',
+        'POR': 'Portland Trail Blazers',
+        'WAS': 'Washington Wizards',
+        'CHI': 'Chicago Bulls'
+    }
+
+    df = df.copy()
+    if abbr_col not in df.columns:
+        print(f"⚠️ Column {abbr_col} not found in dataframe.")
+        return df
+
+    df["TEAM"] = df[abbr_col].apply(lambda abv: nba_teams_dict.get(abv, "Unknown"))
+    return df
+
+
+
+
+
+# -------------------------------------
+# Processing: expand AWARDS column
+# -------------------------------------
+def expand_awards(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Expand AWARDS column into multiple columns.
+    Example: "MVP-8,AS,NBA2" → MVP=8, AS=1, NBA2=1
+    """
+    if "AWARDS" not in df.columns:
+        print("⚠️ 'AWARDS' column not found, skipping expansion.")
+        return df
+
+    df_expanded = df.copy()
+
+    all_awards = set()
+
+    # First pass: collect all possible award types
+    for raw in df_expanded["AWARDS"].dropna():
+        parts = str(raw).split(",")
+        for part in parts:
+            key = part.split("-")[0]  # MVP-8 → MVP
+            all_awards.add(key)
+
+    # Add new columns initialized to 0
+    for award in all_awards:
+        df_expanded[award] = 0
+
+    # Second pass: fill values
+    for idx, raw in df_expanded["AWARDS"].dropna().items():
+        parts = str(raw).split(",")
+        for part in parts:
+            if "-" in part:
+                key, val = part.split("-", 1)
+                df_expanded.at[idx, key] = int(val)
+            else:
+                df_expanded.at[idx, part] = 1
+
+    return df_expanded
+
+
+
+
+# -------------------------------------
+# Add primary key (int) based on season + player + team + position
+# -------------------------------------
+def add_primary_key(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create a reproducible integer primary key for each player-season-team-position.
+    """
+    # Build a unique string key
+    df["PK_KEY"] = (
+        df["SEASON"].astype(str) + "_" +
+        df["PLAYER"].str.upper() + "_" +
+        df["TEAM"].str.upper() + "_" +
+        df["POS"].str.upper()
+    )
+
+    # Factorize to get unique int IDs
+    df["PLAYER_ID"] = df["PK_KEY"].factorize()[0] + 1
+
+    # Drop helper column if not needed
+    #df.drop(columns=["PK_KEY"], inplace=True)
+
+    return df
+
+
