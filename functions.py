@@ -159,4 +159,54 @@ def run_batch(start_year, end_year):
             print(f"⚠️ Skipped {year} due to error: {e}")
 
         # Short random delay (5–12s) between requests
-        time.sleep(random.randint(60,65))
+        time.sleep(random.randint(90,120))
+
+
+
+
+# -------------------------------------
+# Scrape Player Salaries (current table)
+# -------------------------------------
+def scrape_salaries() -> pd.DataFrame:
+    """
+    Scrape current NBA player contracts from Basketball Reference.
+    Table is updated each year automatically.
+    
+    Returns:
+        pd.DataFrame: Salary data with columns for each season.
+    """
+    url = "https://www.basketball-reference.com/contracts/players.html"
+    df = pd.read_html(url, header=0)[0]
+
+    # Clean column names
+    df.columns = [col.strip() for col in df.columns]
+
+    return df
+
+
+
+
+
+# -------------------------------------
+# Concat raw data
+# -------------------------------------
+
+def concat_raw_data(folder: str, output_file: str):
+    """
+    Concatenate all CSVs in a folder into one big file.
+    Missing columns are filled with NaN automatically.
+    """
+    files = [f for f in os.listdir(folder) if f.endswith(".csv")]
+    files = sorted(files)  # ensure chronological order
+
+    dfs = []
+    for f in files:
+        path = os.path.join(folder, f)
+        df = pd.read_csv(path, encoding="utf-8-sig")
+        dfs.append(df)
+
+    df_all = pd.concat(dfs, ignore_index=True, sort=True)  # union of columns
+    os.makedirs("processed_data", exist_ok=True)
+    df_all.to_csv(f"processed_data/{output_file}", index=False, encoding="utf-8-sig")
+
+    print(f"✅ {output_file} created with {len(df_all)} rows and {len(df_all.columns)} columns.")

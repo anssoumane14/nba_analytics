@@ -24,4 +24,4 @@ for start, end in batches:
     run_batch(start, end)
 
     print(f"😴 Sleeping between batches to avoid block ...")
-    time.sleep(300)  # 5 min pause between batches
+    time.sleep(600)  # 10 min pause between batches
