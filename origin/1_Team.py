@@ -2,55 +2,82 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from nav import navbar
 
 # -------------------------------
-# Page config
+# Configuration de la Page
 # -------------------------------
-st.set_page_config(page_title="Team", layout="wide")
+st.set_page_config(page_title="Équipe", layout="wide")
 
 # -------------------------------
-# Show navbar
+# Barre de navigation (liens simples)
 # -------------------------------
-# --- Top navbar (official) ---
-c1, c2, c3, c4,c5 = st.columns(5)
-with c1: st.page_link("home.py",                   label="🏠 Home")
-with c2: st.page_link("pages/1_Team.py",           label="🏀 Team")
-with c3: st.page_link("pages/2_Statistics.py",     label="📊 Statistics")
-with c4: st.page_link("pages/3_Champ_Historic.py", label="🏆 Historic")
-with c5: st.page_link("pages/4_Trade_Machine.py",  label="💸 Trade Machine")
+c1, c2, c3, c4, c5 = st.columns(5)
+with c1: st.page_link("home.py",                   label=" Accueil")
+with c2: st.page_link("pages/1_Team.py",           label=" Équipe")
+with c3: st.page_link("pages/2_Statistics.py",     label=" Statistiques")
+with c4: st.page_link("pages/3_Champ_Historic.py", label=" Historique")
+with c5: st.page_link("pages/4_Trade_Machine.py",  label=" Machine à Trade")
 
+# =========================================================
+# CACHES
+# =========================================================
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_team_page_data():
+    df_west         = pd.read_excel("data/df_western_conf_standing.xlsx")
+    df_east         = pd.read_excel("data/df_eastern_conf_standing.xlsx")
+    df_team_ratings = pd.read_excel("data/df_nba_team_reg_season_ratings.xlsx")
+    df_reg_players  = pd.read_excel("data/df_reg_season_players_filtered.xlsx")
+    df_po_players   = pd.read_excel("data/df_playoff_players_filtered.xlsx")
+    df_salaries     = pd.read_excel("data/df_nba_players_salaries.xlsx")
+    return df_west, df_east, df_team_ratings, df_reg_players, df_po_players, df_salaries
 
-# -------------------------------
-# Load Data
-# -------------------------------
-df_west = pd.read_excel("data/df_western_conf_standing.xlsx")
-df_east = pd.read_excel("data/df_eastern_conf_standing.xlsx")
-df_team_ratings = pd.read_excel("data/df_nba_team_reg_season_ratings.xlsx")
-df_reg_players = pd.read_excel("data/df_reg_season_players_filtered.xlsx")
-df_po_players = pd.read_excel("data/df_playoff_players_filtered.xlsx")
-df_salaries = pd.read_excel("data/df_nba_players_salaries.xlsx")
+@st.cache_data(ttl=3600, show_spinner=False)
+def build_salaries_long_join(df_salaries: pd.DataFrame, df_reg_players: pd.DataFrame):
+    # Colonnes d'années dynamiques (exclut PLAYER/TEAM/GUARANTEED)
+    year_cols = [c for c in df_salaries.columns if c not in ["PLAYER", "TEAM"] and str(c).upper() != "GUARANTEED"]
 
+    df_salaries_long = df_salaries.melt(
+        id_vars=["PLAYER", "TEAM"],
+        value_vars=year_cols,
+        var_name="YEAR",
+        value_name="SALARY"
+    )
 
-# -------------------------------
-# Apply additional filters for player quality
-# -------------------------------
-df_reg_players = df_reg_players[(df_reg_players["GP"] > 10) & (df_reg_players["MIN_PG"] > 10)]
-df_po_players = df_po_players[(df_po_players["GP"] > 10) & (df_po_players["MIN_PG"] > 10)]
+    # Jointure pour récupérer position et stats clés (depuis REG saison)
+    df_players_slim = df_reg_players[["PLAYER_NAME", "TEAM", "POSITION", "PTS_PG", "AST_PG", "REB_PG"]].rename(
+        columns={"PLAYER_NAME": "PLAYER"}
+    )
 
-# -------------------------------
-# Function
-# -------------------------------
-def render_kpi(df, value_col, title):
+    df_join = pd.merge(
+        df_salaries_long,
+        df_players_slim,
+        how="left",
+        on=["PLAYER", "TEAM"]
+    )
+
+    # SALARY_NUM numérique
+    df_join["SALARY_NUM"] = (
+        df_join["SALARY"]
+        .astype(str)
+        .str.replace(r"[^0-9]", "", regex=True)
+        .replace("", "0")
+        .astype(int)
+    )
+    return df_salaries_long, df_join
+
+# =========================================================
+# UTILITAIRES UI
+# =========================================================
+def render_kpi(df: pd.DataFrame, value_col: str, title: str):
+    """Affiche une carte KPI pour le joueur ayant la valeur max de value_col."""
     if df.empty or value_col not in df.columns or df[value_col].dropna().empty:
-        st.info(f"No data for {title}.")
+        st.info(f"Aucune donnée pour {title}.")
         return
 
     idx = df[value_col].idxmax()
     row = df.loc[idx]
     val = float(row[value_col])
-    player_name = str(row.get("PLAYER_NAME", "Unknown"))
-    team_name = str(row.get("TEAM", row.get("TEAM_ABBREVIATION", "")))
+    player_name = str(row.get("PLAYER_NAME", "Inconnu"))
 
     width_px = 320
     st.markdown(
@@ -64,7 +91,8 @@ def render_kpi(df, value_col, title):
         unsafe_allow_html=True
     )
 
-def render_kpi_box(title, value_text, subtitle=""):
+def render_kpi_box(title: str, value_text: str, subtitle: str = ""):
+    """Carte KPI générique."""
     width_px = 320
     st.markdown(
         f"""
@@ -77,34 +105,61 @@ def render_kpi_box(title, value_text, subtitle=""):
         unsafe_allow_html=True
     )
 
+def pick_display_columns(
+    df: pd.DataFrame,
+    base_cols=("TEAM", "PLAYER_NAME", "PTS_PG", "AST_PG", "REB_PG", "MIN_PG"),
+    exclude=("PLAYER_ID", "NICKNAME", "TEAM_ABBREVIATION"),
+    key="col_picker"
+) -> list:
+    """Sélecteur de colonnes avec exclusions et option 'Tout sélectionner'."""
+    exclude = set(exclude)
+    available = [c for c in df.columns if c not in exclude]
+    defaults = [c for c in base_cols if c in available]
+    extras = [c for c in available if c not in defaults]
 
-# -------------------------------
-# Title
-# -------------------------------
-st.markdown(
-    "<h1 style='text-align: center;'>🏀 NBA TEAM 2024-25 Overview</h1>",
-    unsafe_allow_html=True
-)
+    options = ["Tout sélectionner"] + extras
+    selected_extra = st.multiselect(
+        "Ajouter des colonnes à afficher",
+        options=options,
+        default=[],
+        key=key
+    )
+    if "Tout sélectionner" in selected_extra:
+        selected_extra = extras
+    return defaults + selected_extra
 
-# -------------------------------
-# Global Team Filter
-# -------------------------------
+# =========================================================
+# CHARGEMENT DES DONNÉES
+# =========================================================
+df_west, df_east, df_team_ratings, df_reg_players, df_po_players, df_salaries = load_team_page_data()
+
+# Filtre qualité (cohérent avec ta home) : GP>10 & MIN_PG>10
+df_reg_players = df_reg_players[(df_reg_players["GP"] > 10) & (df_reg_players["MIN_PG"] > 10)]
+df_po_players  = df_po_players[(df_po_players["GP"] >= 4) & (df_po_players["MIN_PG"] > 10)]
+
+# Build salaires long + join (caché)
+df_salaries_unpivoted, df_join = build_salaries_long_join(df_salaries, df_reg_players)
+
+# =========================================================
+# TITRE
+# =========================================================
+st.markdown("<h1 style='text-align: center;'> Aperçu de l'Équipe NBA 2024-25</h1>", unsafe_allow_html=True)
+
+# =========================================================
+# FILTRE GLOBAL ÉQUIPE
+# =========================================================
 team_options = sorted(df_reg_players["TEAM"].dropna().unique())
-selected_team = st.selectbox("Select a Team", team_options, index=0, key="team_filter")
+selected_team = st.selectbox("Sélectionnez une Équipe", team_options, index=0, key="team_filter")
 
-# -------------------------------
-# Build combined standings with flags + rank
-# -------------------------------
+# =========================================================
+# STANDINGS (conf + rang)
+# =========================================================
 df_west_local = df_west.copy()
 df_east_local = df_east.copy()
-
-df_west_local["CONF"] = "West"
-df_east_local["CONF"] = "East"
-
-# If your standings are already sorted, rank is row order
+df_west_local["CONF"] = "Ouest"
+df_east_local["CONF"] = "Est"
 df_west_local["RANK"] = range(1, len(df_west_local) + 1)
 df_east_local["RANK"] = range(1, len(df_east_local) + 1)
-
 df_standings = pd.concat([df_east_local, df_west_local], ignore_index=True)
 
 def to_bool_playoff(x):
@@ -117,178 +172,89 @@ if "PLAYOFF_TEAM" in df_standings.columns:
 else:
     df_standings["PLAYOFF_TEAM"] = False
 
-# Lookup selected team rank
 team_row = df_standings[df_standings["TEAM"] == selected_team]
 if not team_row.empty:
     conf = team_row.iloc[0]["CONF"]
     rank = int(team_row.iloc[0]["RANK"])
-    st.markdown(f"**Conference:** {conf} — **Rank:** #{rank}")
+    st.markdown(f"**Conférence :** {conf} — **Rang :** #{rank}")
 else:
-    st.info("Selected team not found in standings.")
+    st.info("Équipe sélectionnée non trouvée dans les classements.")
 
-
-
-
-# -------------------------------
-# General Data
-# -------------------------------
+# =========================================================
+# SAISON (REG vs PO) + DATAFRAME COURANT
+# =========================================================
 season_filter = st.radio(
-        "Season Type",
-        ["Regular Season", "Playoffs"],
-        horizontal=True,
-        key="season_filter_team"
-    )
+    "Filtrez les Statistiques selon la partie de la saison",
+    ["Saison Régulière", "Playoffs"],
+    horizontal=True,
+    key="season_filter_team"
+)
 
-# Select correct dataset for the season
-df = df_reg_players if season_filter == "Regular Season" else df_po_players
+df_current = df_reg_players if season_filter == "Saison Régulière" else df_po_players
+df_current = df_current[df_current["TEAM"] == selected_team]
 
-# Apply global team filter
-df = df[df["TEAM"] == selected_team]
-
-# If Playoffs selected but team did not make playoffs, stop this tab gracefully
 if season_filter == "Playoffs":
     row = df_standings[df_standings["TEAM"] == selected_team]
     is_po = bool(row["PLAYOFF_TEAM"].iloc[0]) if not row.empty else False
     if not is_po:
-        st.warning(f"{selected_team} did not make the playoffs in 2024-25 — no playoff player stats to display.")
+        st.warning(f"{selected_team} n'a pas participé aux playoffs en 2024-25 — aucune statistique de joueur de playoffs à afficher.")
         st.stop()
 
-st.markdown(f"### Team Stats — {selected_team}")
-st.markdown("## 📌 General Stats")
+st.markdown(f"### Statistiques de l'Équipe — {selected_team}")
+st.markdown("## Statistiques Générales")
 
-# -------------------------------
-# Tabs (Bookmarks)
-# -------------------------------
-tab_stats, tab_salaries = st.tabs(["📊 Team Stats", "💰 Salaries"])
-
-
+# =========================================================
+# ONGLETS
+# =========================================================
+tab_stats, tab_salaries = st.tabs([" Statistiques de l'Équipe", " Salaires"])
 
 # ===============================
-# 📊 I. TEAM STATS
+# I. STATISTIQUES DE L'ÉQUIPE
 # ===============================
 with tab_stats:
-    
-
-    # --- First row KPIs ---
+    # KPIs 1
     c1, c2, c3 = st.columns(3)
-    with c1:
-        render_kpi(df, "PTS_PG", "Points per Game")
-    with c2:
-        render_kpi(df, "REB_PG", "Rebounds per Game")
-    with c3:
-        render_kpi(df, "AST_PG", "Assists per Game")
+    with c1: render_kpi(df_current, "PTS_PG", "Points par Match")
+    with c2: render_kpi(df_current, "REB_PG", "Rebonds par Match")
+    with c3: render_kpi(df_current, "AST_PG", "Passes Décisives par Match")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- Second row KPIs ---
+    # KPIs 2
     c4, c5, c6 = st.columns(3)
-    with c4:
-        render_kpi(df, "STL_PG", "Steals per Game")
-    with c5:
-        render_kpi(df, "BLK_PG", "Blocks per Game")
-    with c6:
-        render_kpi(df, "TOV_PG", "Turnovers per Game")
+    with c4: render_kpi(df_current, "STL_PG", "Interceptions par Match")
+    with c5: render_kpi(df_current, "BLK_PG", "Contres par Match")
+    with c6: render_kpi(df_current, "TOV_PG", "Pertes de Balle par Match")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
 
-    
-    # --------------------------------
-    # Full Team — Field Parameter Style
-    # --------------------------------
-    st.markdown("## Full Team")
-
-    # Default columns (only keep those that actually exist)
-    default_cols = [c for c in ["TEAM", "PLAYER_NAME", "PTS_PG", "AST_PG", "REB_PG", "MIN_PG"] if c in df.columns]
-
-    # Additional fields you can add on top of defaults
-    additional_fields = [c for c in df.columns if c not in default_cols]
-
-    # Multiselect with "Select All"
-    multiselect_options = ["Select All"] + additional_fields
-    selected_extra = st.multiselect(
-        "Add columns to display",
-        options=multiselect_options,
-        default=[],
+    # Effectif complet (avec exclusions centralisées)
+    st.markdown("## Effectif Complet")
+    cols_to_show = pick_display_columns(
+        df_current,
+        base_cols=("TEAM", "PLAYER_NAME", "PTS_PG", "AST_PG", "REB_PG", "MIN_PG"),
+        exclude=("PLAYER_ID", "NICKNAME", "TEAM_ABBREVIATION"),
         key="team_full_fields"
     )
-
-    # Expand "Select All"
-    if "Select All" in selected_extra:
-        selected_extra = additional_fields
-
-    # Final column list to show
-    cols_to_show = default_cols + selected_extra
-
     if cols_to_show:
-        st.dataframe(df[cols_to_show], hide_index=True, use_container_width=True)
+        st.dataframe(df_current[cols_to_show], hide_index=True, use_container_width=True)
     else:
-        st.info("No columns selected. Please choose at least one.")
-
-
-# ===============================
-# 💰 II. SALARIES
-# ===============================
-
-# -------------------------------
-# Unpivot Salaries
-# -------------------------------
-year_cols = ["2025-26", "2026-27", "2027-28", "2028-29", "2029-30", "2030-31", "GUARANTEED"]
-
-df_salaries_unpivoted = df_salaries.melt(
-    id_vars=["PLAYER", "TEAM"],
-    value_vars=year_cols,
-    var_name="YEAR",
-    value_name="SALARY"
-)
-
-
-# -------------------------------
-# Join salaries (long) with players to get POSITION
-# -------------------------------
-df_players_slim = df_reg_players[["PLAYER_NAME", "TEAM", "POSITION","PTS_PG","AST_PG","REB_PG"]]#.drop_duplicates()
-df_players_slim = df_players_slim.rename(columns={"PLAYER_NAME": "PLAYER"})
-
-df_join = pd.merge(
-    df_salaries_unpivoted,   # PLAYER, TEAM, YEAR, SALARY
-    df_players_slim,         # PLAYER, TEAM, POSITION
-    how="left",
-    on=["PLAYER", "TEAM"]
-)
-
-# Add numeric salary column
-df_join["SALARY_NUM"] = (
-    df_join["SALARY"]
-    .astype(str)
-    .str.replace(r"[^0-9]", "", regex=True)
-    .replace("", "0")
-    .astype(int)
-)
+        st.info("Aucune colonne sélectionnée. Veuillez en choisir au moins une.")
 
 # ===============================
-# 💰 Salaries (pie by position)
+# II. SALAIRES
 # ===============================
 with tab_salaries:
-    st.markdown(f"### Player Salaries — {selected_team}")
+    st.markdown(f"### Salaires des Joueurs — {selected_team}")
 
-
-
-    all_years = sorted([y for y in df_salaries_unpivoted["YEAR"].dropna().unique() if str(y) != "GUARANTEED"])
-    selected_year = st.selectbox("Select Season", all_years, index=0)
+    # Liste d'années disponibles (hors 'GUARANTEED' déjà exclu en amont)
+    all_years = sorted(df_salaries_unpivoted["YEAR"].dropna().unique())
+    selected_year = st.selectbox("Sélectionnez la Saison", all_years, index=0, key="salary_year")
 
     df_team_year = df_join[(df_join["TEAM"] == selected_team) & (df_join["YEAR"] == selected_year)].copy()
 
-    
-    # ===============================
-    # KPI cards for selected year
-    # ===============================
-
-    # KPI
-
-    # --- 1) Compute KPI values from df_team_year (already filtered by TEAM + YEAR)
-    team_total = int(df_team_year["SALARY_NUM"].sum())
-
+    # KPIs salaires
+    team_total = int(df_team_year["SALARY_NUM"].sum()) if not df_team_year.empty else 0
     if not df_team_year.empty and df_team_year["SALARY_NUM"].max() > 0:
         top_row = df_team_year.loc[df_team_year["SALARY_NUM"].idxmax()]
         top_player = str(top_row["PLAYER"])
@@ -296,9 +262,11 @@ with tab_salaries:
     else:
         top_player, top_salary = "—", 0
 
-    # “Value”: (PPG+APG+RPG) per $1M for this team & year
     df_val = df_team_year.copy()
-    df_val[["PTS_PG","AST_PG","REB_PG"]] = df_val[["PTS_PG","AST_PG","REB_PG"]].fillna(0)
+    for c in ["PTS_PG", "AST_PG", "REB_PG"]:
+        if c not in df_val.columns:
+            df_val[c] = 0
+    df_val[["PTS_PG", "AST_PG", "REB_PG"]] = df_val[["PTS_PG", "AST_PG", "REB_PG"]].fillna(0)
     df_val["salary_m"] = df_val["SALARY_NUM"].replace(0, pd.NA) / 1_000_000
     df_val["value_score"] = (df_val["PTS_PG"] + df_val["AST_PG"] + df_val["REB_PG"]) / df_val["salary_m"]
 
@@ -307,38 +275,30 @@ with tab_salaries:
     else:
         best_row = df_val.loc[df_val["value_score"].idxmax()]
         best_value_player = str(best_row["PLAYER"])
-        best_value_score  = float(best_row["value_score"])
+        best_value_score = float(best_row["value_score"])
 
-    # --- ) Show the three KPI cards
     c1, c2, c3 = st.columns(3)
-    with c1:
-        render_kpi_box("Team Payroll", f"${team_total:,.0f}", f"{selected_team} — {selected_year}")
-    with c2:
-        render_kpi_box("Top-Paid Player", f"${top_salary:,.0f}", top_player)
-    with c3:
-        render_kpi_box("Best Value (PPG+APG+RPG per $1M)", f"{best_value_score:.1f}", best_value_player)
-
-
-        
-
-
-    # PIE CHART
-
-    # ✅ Group by position with numeric salary
+    with c1: render_kpi_box("Masse Salariale de l'Équipe", f"${team_total:,.0f}", f"{selected_team} — {selected_year}")
+    with c2: render_kpi_box("Joueur le Mieux Payé", f"${top_salary:,.0f}", top_player)
+    with c3: render_kpi_box("Meilleure valeur (PTS+AST+REB / 1 M$)", f"{best_value_score:.1f}", best_value_player)
+    
+    # Pie salaires par position
+    df_team_year = df_team_year[df_team_year["POSITION"].notna()]  # <-- exclut les joueurs sans position
     df_pie = (
-        df_team_year.groupby("POSITION", dropna=False, as_index=False)["SALARY_NUM"]
+        df_team_year.groupby("POSITION", as_index=False)["SALARY_NUM"]
         .sum()
         .sort_values("SALARY_NUM", ascending=False)
     )
 
-    if df_pie["SALARY_NUM"].sum() == 0 or df_pie.empty:
-        st.info("No salary data available for this team/year.")
+
+    if df_pie.empty or df_pie["SALARY_NUM"].sum() == 0:
+        st.info("Aucune donnée de salaire disponible pour cette équipe/année.")
     else:
         fig = px.pie(
             df_pie,
             names="POSITION",
             values="SALARY_NUM",
-            title=f"Total Salaries by Position — {selected_team} ({selected_year})",
+            title=f"Total des Salaires par Position — {selected_team} ({selected_year})",
             hole=0.35,
             color_discrete_sequence=px.colors.sequential.Blues_r
         )
@@ -351,9 +311,20 @@ with tab_salaries:
         fig.update_layout(margin=dict(t=60, b=30, l=10, r=10))
         st.plotly_chart(fig, use_container_width=True)
 
-        with st.expander("Show player rows for this season"):
-            st.dataframe(
-                df_team_year[["PLAYER", "POSITION", "SALARY"]],
-                hide_index=True,
-                use_container_width=True
-            )
+        with st.expander("Afficher les lignes de joueurs pour cette saison"):
+            # Tableau formaté ($)
+            try:
+                money_col = st.column_config.NumberColumn(format="$%,.0f")
+                st.dataframe(
+                    df_team_year[["PLAYER", "POSITION", "SALARY_NUM"]].rename(columns={"SALARY_NUM": "SALARY($)"}),
+                    column_config={"SALARY($)": money_col},
+                    hide_index=True,
+                    use_container_width=True
+                )
+            except Exception:
+                # fallback si la version de Streamlit ne supporte pas column_config
+                st.dataframe(
+                    df_team_year[["PLAYER", "POSITION", "SALARY_NUM"]].rename(columns={"SALARY_NUM": "SALARY($)"}),
+                    hide_index=True,
+                    use_container_width=True
+                )
