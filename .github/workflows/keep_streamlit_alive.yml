@@ -1,0 +1,32 @@
+name: Keep Streamlit Alive
+
+on:
+  schedule:
+    # Toutes les 12 h (00:00 et 12:00 UTC) pour rester < 24 h d'inactivité
+    - cron: "0 */12 * * *"
+  workflow_dispatch: {}  # permet de lancer manuellement depuis l'onglet Actions
+
+permissions:
+  contents: write  # autorise le push via GITHUB_TOKEN
+
+concurrency:
+  group: keep-streamlit-awake
+  cancel-in-progress: true
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (branche de déploiement)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          ref: main          # <--- mets ici ta branche (ex: master)
+
+      - name: Create empty commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Commit vide pour réveiller Streamlit sans changer de fichiers
+          git commit --allow-empty -m "chore(keepalive): ping $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          git push
