@@ -4,7 +4,6 @@ import random
 from functions import scrape_regular_season, scrape_playoffs, scrape_awards,run_batch
 
 # python raw_scrapping.py
-
 # Create folders if not exist
 os.makedirs("raw_data_bball_ref/raw_rs", exist_ok=True)
 os.makedirs("raw_data_bball_ref/raw_po", exist_ok=True)

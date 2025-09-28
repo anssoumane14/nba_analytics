@@ -8,60 +8,6 @@ import os
 import time
 import random
 
-
-# -------------------------------------
-# Scrape Regular Season Player Totals
-# -------------------------------------
-def scrape_regular_season(year: int) -> pd.DataFrame:
-    """
-    Scrape regular season player totals for a given year.
-    
-    Args:
-        year (int): Last year of the season (e.g., 2024 for the 2023-24 season).
-    
-    Returns:
-        pd.DataFrame: Player totals with a Season column.
-    """
-    url = f"https://www.basketball-reference.com/leagues/NBA_{year}_totals.html"
-    df = pd.read_html(url, header=0)[0]
-
-    # Remove duplicate headers inside table
-    df = df[df["Player"] != "Player"]
-
-    # Add Season column (e.g., "2023-24")
-    df["Season"] = f"{year-1}-{str(year)[-2:]}"
-    df["Season_Type"] = "Regular Season"
-
-    return df
-
-
-# -------------------------------------
-# Scrape Playoff Player Totals
-# -------------------------------------
-def scrape_playoffs(year: int) -> pd.DataFrame:
-    """
-    Scrape playoff player totals for a given year.
-    
-    Args:
-        year (int): Last year of the season (e.g., 2024 for the 2023-24 season).
-    
-    Returns:
-        pd.DataFrame: Playoff player totals with a Season column.
-    """
-    url = f"https://www.basketball-reference.com/playoffs/NBA_{year}_totals.html"
-    df = pd.read_html(url, header=0)[0]
-
-    # Remove duplicate headers inside table
-    df = df[df["Player"] != "Player"]
-
-    # Add Season column (e.g., "2023-24")
-    df["Season"] = f"{year-1}-{str(year)[-2:]}"
-    df["Season_Type"] = "Playoffs"
-
-    return df
-
-
-
 # -------------------------------------
 # Scrape Awards
 # -------------------------------------
@@ -130,6 +76,58 @@ def scrape_awards(year: int) -> pd.DataFrame:
         id_award += 1
 
     return pd.DataFrame(records, columns=["id_award","Season","Award","Name","PPG","RPG","APG","WS"])
+
+
+# -------------------------------------
+# Scrape Regular Season Player Totals
+# -------------------------------------
+def scrape_regular_season(year: int) -> pd.DataFrame:
+    """
+    Scrape regular season player totals for a given year.
+    
+    Args:
+        year (int): Last year of the season (e.g., 2024 for the 2023-24 season).
+    
+    Returns:
+        pd.DataFrame: Player totals with a Season column.
+    """
+    url = f"https://www.basketball-reference.com/leagues/NBA_{year}_totals.html"
+    df = pd.read_html(url, header=0)[0]
+
+    # Remove duplicate headers inside table
+    df = df[df["Player"] != "Player"]
+
+    # Add Season column (e.g., "2023-24")
+    df["Season"] = f"{year-1}-{str(year)[-2:]}"
+    df["Season_Type"] = "Regular Season"
+
+    return df
+
+
+# -------------------------------------
+# Scrape Playoff Player Totals
+# -------------------------------------
+def scrape_playoffs(year: int) -> pd.DataFrame:
+    """
+    Scrape playoff player totals for a given year.
+    
+    Args:
+        year (int): Last year of the season (e.g., 2024 for the 2023-24 season).
+    
+    Returns:
+        pd.DataFrame: Playoff player totals with a Season column.
+    """
+    url = f"https://www.basketball-reference.com/playoffs/NBA_{year}_totals.html"
+    df = pd.read_html(url, header=0)[0]
+
+    # Remove duplicate headers inside table
+    df = df[df["Player"] != "Player"]
+
+    # Add Season column (e.g., "2023-24")
+    df["Season"] = f"{year-1}-{str(year)[-2:]}"
+    df["Season_Type"] = "Playoffs"
+
+    return df
 
 
 
@@ -384,3 +382,71 @@ def add_primary_key(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+
+def scrape_table(year: int, table_type: str, playoffs: bool = False) -> pd.DataFrame:
+    if playoffs:
+        url = f"https://www.basketball-reference.com/playoffs/NBA_{year}_{table_type}.html"
+        season_type = "Playoffs"
+    else:
+        url = f"https://www.basketball-reference.com/leagues/NBA_{year}_{table_type}.html"
+        season_type = "Regular Season"
+
+    try:
+        df = pd.read_html(url, header=0)[0]
+    except ValueError:
+        print(f"⚠️ Pas de table trouvée (empty) pour {year} - {table_type}")
+        return pd.DataFrame()
+    except Exception as e:
+        print(f"⚠️ Erreur pour {year} - {table_type}: {e}")
+        return pd.DataFrame()
+
+    # Supprimer headers répétés
+    if "Player" in df.columns:
+        df = df[df["Player"] != "Player"]
+
+    df["Season"] = f"{year-1}-{str(year)[-2:]}"
+    df["Season_Type"] = season_type
+
+    return df
+
+
+def run_batch_v2(year_start: int, year_end: int, table_types=None):
+    """
+    Scraper plusieurs saisons et plusieurs types de tables avec reprise automatique.
+    
+    Args:
+        year_start (int): ex: 2025
+        year_end (int): ex: 1976
+        table_types (list): ex: ["totals", "per_poss", "advanced", "play-by-play", "shooting"]
+    """
+    if table_types is None:
+        table_types = ["per_poss", "advanced", "play-by-play"]
+
+    for year in range(year_start, year_end - 1, -1):
+        print(f"\n🚀 Saison {year-1}-{str(year)[-2:]} ...")
+
+        for table in table_types:
+            for playoffs in [False, True]:
+                folder = f"raw_data_bball_ref/raw_{table}"
+                os.makedirs(folder, exist_ok=True)
+
+                playoff_suffix = "_po" if playoffs else "_rs"
+                path = f"{folder}/df_{table}{playoff_suffix}_{year}.csv"
+
+                # ✅ Skip if file already exists
+                if os.path.exists(path):
+                    print(f"⏩ Déjà existant : {path}, on saute.")
+                    continue
+
+                df = scrape_table(year, table, playoffs)
+
+                if df.empty:
+                    continue
+
+                df.to_csv(path, index=False, encoding="utf-8-sig")
+                print(f"✅ {table} ({'Playoffs' if playoffs else 'RS'}) {year} → {len(df)} lignes")
+
+        # Pause aléatoire pour éviter le blocage
+        time.sleep(random.randint(60, 90))
+
+    print("\n🎉 Batch terminé !")
