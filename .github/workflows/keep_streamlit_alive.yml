@@ -3,6 +3,7 @@ name: Keep Streamlit Alive
 on:
   schedule:
     # Toutes les 12 h (00:00 et 12:00 UTC) pour rester < 24 h d'inactivité
+    # - cron: "0 */6 * * *"
     - cron: "0 */12 * * *"
   workflow_dispatch: {}  # permet de lancer manuellement depuis l'onglet Actions
 
