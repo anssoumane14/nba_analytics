@@ -29,4 +29,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # Commit vide pour réveiller Streamlit sans changer de fichiers
           git commit --allow-empty -m "chore(keepalive): ping $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          git push
+          git push origin HEAD:main
+
