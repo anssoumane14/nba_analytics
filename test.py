@@ -1,7 +1,6 @@
+import os
 import pandas as pd
 import streamlit as st
-import plotly.express as px
-from stat_functions import pick_display_columns, afficher_offensif, afficher_defensif
 
 # -------------------------------
 # Config
@@ -9,215 +8,24 @@ from stat_functions import pick_display_columns, afficher_offensif, afficher_def
 st.set_page_config(layout="wide")
 
 # -------------------------------
-# Charger les données (CSV plats)
+# Charger les flat tables
 # -------------------------------
-df_rs = pd.read_csv("processed_data/flat_table/flat_rs.csv", encoding="utf-8-sig")
-df_po = pd.read_csv("processed_data/flat_table/flat_po.csv", encoding="utf-8-sig")
+FLAT_DIR = "flat_table"
 
-# -------------------------------
-# Titre principal
-# -------------------------------
-st.markdown(
-    "<h1 style='text-align: center;'>📊 Statistiques NBA</h1>", 
-    unsafe_allow_html=True
-)
-st.markdown(
-    "<h3 style='text-align: center; color: gray;'>Les chiffres derrière les performances (1976 - 2025)</h3>", 
-    unsafe_allow_html=True
-)
+# On prend uniquement les fichiers CSV
+flat_files = [f for f in os.listdir(FLAT_DIR) if f.endswith(".csv")]
 
-# -------------------------------
-# Tabs
-# -------------------------------
-tab_basics, tab_advanced = st.tabs(["📊 Statistiques de Base", "📈 Analyses Avancées"])
+st.markdown("<h1 style='text-align: center;'>📑 Colonnes des Flat Tables</h1>", unsafe_allow_html=True)
 
+for file in sorted(flat_files):
+    st.subheader(f"📂 {file}")
+    path = os.path.join(FLAT_DIR, file)
 
-# filtre : les joueurs qui ont ete trade on garde que leur dernier team example luka
-# nb de min, match
-# ===============================
-# I. BASIC STATS
-# ===============================
-with tab_basics:
-    # -------------------------------
-    # Filtres
-    # -------------------------------
-    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1], gap="large")
-
-    with col1:
-        season = st.selectbox("Saison", sorted(df_rs["SEASON"].unique(), reverse=True))
-
-    with col2:
-        season_filter = st.radio(
-            "Partie de la saison", 
-            ["Saison régulière", "Playoffs"], 
-            horizontal=True,
-            key="season_filter"
-        )
-
-    with col3:
-        stat_mode = st.radio(
-            "Mode statistique", 
-            ["Par match", "Total"], 
-            horizontal=True,
-            key="stat_mode"
-        )
-
-    with col4:
-        metric_filter = st.selectbox(
-            "Choisir une vue", 
-            ["Leaders", "Top 30", "Toutes les données"],
-            key="metric_filter"
-        )
-
-    # Affichage conditionnel du mode d'affichage
-    if metric_filter in ["Top 30", "Toutes les données"]:
-        view_mode = "Tableau"  # forcé en tableau
-    else:
-        with col5:
-            view_mode = st.radio(
-                "Mode d'affichage", 
-                ["Tableau", "Diagramme en barres"], 
-                horizontal=True,
-                key="view_mode"
-            )
-
-    # -------------------------------
-    # Sélection du dataset
-    # -------------------------------
-    df = df_rs if season_filter == "Saison régulière" else df_po
-    df = df[df["SEASON"] == season]
-
-    # -------------------------------
-    # Affichage selon les filtres
-    # -------------------------------
-    if metric_filter == "Leaders":
-        afficher_offensif(df, season_filter, stat_mode, view_mode)
-        st.divider()
-        afficher_defensif(df, season_filter, stat_mode, view_mode)
-
-    elif metric_filter == "Top 30":
-        stat_choice = st.selectbox(
-            "Sélectionner une statistique",
-            [
-                "Points",
-                "Passes décisives",
-                "Rebonds totaux",
-                "Rebonds défensifs",
-                "Minutes",
-                "3 points marqués",
-                "Lancers francs marqués",
-                "Contres",
-                "Interceptions",
-                "Ballons perdus",
-            ]
-        )
-        suffix = "_PG" if stat_mode == "Par match" else ""
-        stat_map = {
-            "Points": "PTS",
-            "Passes décisives": "AST",
-            "Rebonds totaux": "TRB",
-            "Rebonds défensifs": "DRB",
-            "Minutes": "MP",
-            "3 points marqués": "3P",
-            "Lancers francs marqués": "FT",
-            "Contres": "BLK",
-            "Interceptions": "STL",
-            "Ballons perdus": "TOV",
-        }
-
-        chosen_col = stat_map[stat_choice] + suffix
-        top30 = (
-            df[["PLAYER", "TEAM", chosen_col]]
-            .sort_values(by=chosen_col, ascending=False)
-            .head(30)
-        )
-
-        st.markdown(f"##  Top 30 {stat_choice} ({stat_mode}) - {season_filter}")
-        st.dataframe(top30, hide_index=True, use_container_width=True)
-
-    elif metric_filter == "Toutes les données":
-        st.markdown(f"##  {season_filter} — Données complètes (par champ)")
-
-        cols_to_show = pick_display_columns(
-            df,
-            base_cols=("TEAM", "PLAYER", "PTS_PG", "AST_PG", "TRB_PG", "MP_PG"),
-            exclude=("PLAYER_ID", "RK"),
-            key="all_data_fields"
-        )
-
-        if cols_to_show:
-            st.dataframe(df[cols_to_show], hide_index=True, use_container_width=True)
-        else:
-            st.info("Aucune colonne sélectionnée. Veuillez en choisir au moins une.")
-
-
-# ===============================
-# II. ADVANCED ANALYTICS
-# ===============================
-with tab_advanced:
-    st.markdown("### 📈 Analyses Avancées")
-
-    # --- Clean player names (remove '*') ---
-    for df in [df_rs, df_po]:
-        df["PLAYER"] = df["PLAYER"].str.replace("*", "", regex=False).str.strip()
-
-    # --- Filters ---
-    col1, col2 = st.columns(2)
-    with col1:
-        season = st.selectbox("Choisir une saison", sorted(df_rs["SEASON"].unique(), reverse=True))
-    with col2:
-        player = st.selectbox("Choisir un joueur", sorted(df_rs["PLAYER"].unique()))
-
-    # --- Extract player data ---
-    rs_stats = df_rs[(df_rs["SEASON"] == season) & (df_rs["PLAYER"] == player)]
-    po_stats = df_po[(df_po["SEASON"] == season) & (df_po["PLAYER"] == player)]
-
-    if rs_stats.empty and po_stats.empty:
-        st.warning("⚠️ Aucune donnée trouvée pour ce joueur/saison.")
-    else:
-        rs_row = rs_stats.iloc[0] if not rs_stats.empty else None
-        po_row = po_stats.iloc[0] if not po_stats.empty else None
-
-        # --- Stats à comparer ---
-        metrics = {
-            "Points": "PTS_PG",
-            "Passes décisives": "AST_PG",
-            "Rebonds": "TRB_PG",
-            "Interceptions": "STL_PG",
-            "Contres": "BLK_PG",
-            "Minutes": "MP_PG",
-        }
-
-        data = []
-        for label, col in metrics.items():
-            rs_val = rs_row[col] if rs_row is not None and col in rs_row else None
-            po_val = po_row[col] if po_row is not None and col in po_row else None
-            diff = (po_val - rs_val) if (rs_val is not None and po_val is not None) else None
-            data.append([label, rs_val, po_val, diff])
-
-        df_diff = pd.DataFrame(data, columns=["Stat", "RS", "PO", "Différentiel"])
-
-        st.markdown(f"#### 📊 {player} — Saison {season} (RS vs PO)")
-        st.dataframe(df_diff, hide_index=True, use_container_width=True)
-
-        # --- Bar chart comparison (if both RS and PO exist) ---
-        if df_diff[["RS", "PO"]].notna().all(axis=None):
-            st.markdown("#### 📉 Comparaison RS vs PO")
-            fig_bar = px.bar(
-                df_diff.melt(id_vars="Stat", value_vars=["RS", "PO"], var_name="Contexte", value_name="Valeur"),
-                x="Stat", y="Valeur", color="Contexte", barmode="group",
-                text="Valeur", title=f"{player} — RS vs PO"
-            )
-            st.plotly_chart(fig_bar, use_container_width=True)
-
-            # --- Spider chart (radar) ---
-            st.markdown("#### 🕸️ Profil Radar (RS vs PO)")
-            fig_radar = px.line_polar(
-                df_diff.melt(id_vars="Stat", value_vars=["RS", "PO"], var_name="Contexte", value_name="Valeur"),
-                r="Valeur", theta="Stat", color="Contexte", line_close=True
-            )
-            st.plotly_chart(fig_radar, use_container_width=True)
-        else:
-            st.info("ℹ️ RS ou PO manquant pour ce joueur/saison, affichage limité aux données disponibles.")
-
-
+    try:
+        df = pd.read_csv(path, encoding="utf-8-sig")
+        # Affiche les colonnes
+        st.write(list(df.columns))
+        # Un petit aperçu des données
+        st.dataframe(df.head(), use_container_width=True)
+    except Exception as e:
+        st.error(f"Erreur lors du chargement de {file} : {e}")
