@@ -11,8 +11,8 @@ st.set_page_config(layout="wide")
 # -------------------------------
 # Charger les données (CSV plats)
 # -------------------------------
-df_rs = pd.read_csv("processed_data/flat_rs.csv", encoding="utf-8-sig")
-df_po = pd.read_csv("processed_data/flat_po.csv", encoding="utf-8-sig")
+df_rs = pd.read_csv("processed_data/flat_table/flat_rs.csv", encoding="utf-8-sig")
+df_po = pd.read_csv("processed_data/flat_table/flat_po.csv", encoding="utf-8-sig")
 
 # -------------------------------
 # Titre principal
@@ -151,12 +151,15 @@ with tab_basics:
             st.info("Aucune colonne sélectionnée. Veuillez en choisir au moins une.")
 
 
-
 # ===============================
 # II. ADVANCED ANALYTICS
 # ===============================
 with tab_advanced:
     st.markdown("### 📈 Analyses Avancées")
+
+    # --- Clean player names (remove '*') ---
+    for df in [df_rs, df_po]:
+        df["PLAYER"] = df["PLAYER"].str.replace("*", "", regex=False).str.strip()
 
     # --- Filters ---
     col1, col2 = st.columns(2)
@@ -169,11 +172,11 @@ with tab_advanced:
     rs_stats = df_rs[(df_rs["SEASON"] == season) & (df_rs["PLAYER"] == player)]
     po_stats = df_po[(df_po["SEASON"] == season) & (df_po["PLAYER"] == player)]
 
-    if rs_stats.empty or po_stats.empty:
-        st.warning("⚠️ Données incomplètes pour ce joueur/saison (pas de RS ou PO).")
+    if rs_stats.empty and po_stats.empty:
+        st.warning("⚠️ Aucune donnée trouvée pour ce joueur/saison.")
     else:
-        rs_row = rs_stats.iloc[0]
-        po_row = po_stats.iloc[0]
+        rs_row = rs_stats.iloc[0] if not rs_stats.empty else None
+        po_row = po_stats.iloc[0] if not po_stats.empty else None
 
         # --- Stats à comparer ---
         metrics = {
@@ -187,30 +190,34 @@ with tab_advanced:
 
         data = []
         for label, col in metrics.items():
-            rs_val = rs_row[col]
-            po_val = po_row[col]
-            diff = po_val - rs_val
+            rs_val = rs_row[col] if rs_row is not None and col in rs_row else None
+            po_val = po_row[col] if po_row is not None and col in po_row else None
+            diff = (po_val - rs_val) if (rs_val is not None and po_val is not None) else None
             data.append([label, rs_val, po_val, diff])
 
         df_diff = pd.DataFrame(data, columns=["Stat", "RS", "PO", "Différentiel"])
 
-        # --- Show table ---
         st.markdown(f"#### 📊 {player} — Saison {season} (RS vs PO)")
-        #st.dataframe(df_diff, hide_index=True, use_container_width=True)
+        st.dataframe(df_diff, hide_index=True, use_container_width=True)
 
-        # --- Bar chart comparison ---
-        st.markdown("#### 📉 Comparaison RS vs PO")
-        fig_bar = px.bar(
-            df_diff.melt(id_vars="Stat", value_vars=["RS", "PO"], var_name="Contexte", value_name="Valeur"),
-            x="Stat", y="Valeur", color="Contexte", barmode="group",
-            text="Valeur", title=f"{player} — RS vs PO"
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
+        # --- Bar chart comparison (if both RS and PO exist) ---
+        if df_diff[["RS", "PO"]].notna().all(axis=None):
+            st.markdown("#### 📉 Comparaison RS vs PO")
+            fig_bar = px.bar(
+                df_diff.melt(id_vars="Stat", value_vars=["RS", "PO"], var_name="Contexte", value_name="Valeur"),
+                x="Stat", y="Valeur", color="Contexte", barmode="group",
+                text="Valeur", title=f"{player} — RS vs PO"
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
 
-        # --- Spider chart (radar) ---
-        st.markdown("#### 🕸️ Profil Radar (RS vs PO)")
-        fig_radar = px.line_polar(
-            df_diff.melt(id_vars="Stat", value_vars=["RS", "PO"], var_name="Contexte", value_name="Valeur"),
-            r="Valeur", theta="Stat", color="Contexte", line_close=True
-        )
-        st.plotly_chart(fig_radar, use_container_width=True)
+            # --- Spider chart (radar) ---
+            st.markdown("#### 🕸️ Profil Radar (RS vs PO)")
+            fig_radar = px.line_polar(
+                df_diff.melt(id_vars="Stat", value_vars=["RS", "PO"], var_name="Contexte", value_name="Valeur"),
+                r="Valeur", theta="Stat", color="Contexte", line_close=True
+            )
+            st.plotly_chart(fig_radar, use_container_width=True)
+        else:
+            st.info("ℹ️ RS ou PO manquant pour ce joueur/saison, affichage limité aux données disponibles.")
+
+

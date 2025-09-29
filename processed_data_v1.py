@@ -33,11 +33,7 @@ df_rs_pg = map_team_names(df_rs_pg, abbr_col="TM")
 # PO → already has TM
 df_po_pg = map_team_names(df_po_pg, abbr_col="TM")
 
-# -------------------------------
-# Expand AWARDS
-# -------------------------------
-df_rs_pg = expand_awards(df_rs_pg)
-df_po_pg = expand_awards(df_po_pg)
+
 
 # -------------------------------
 # Add Primary Key
