@@ -1,4 +1,5 @@
 import pandas as pd
+import re
 import streamlit as st
 from stat_functions import (
     afficher_offensif,
@@ -15,12 +16,10 @@ st.set_page_config(layout="wide")
 # -------------------------------
 df_rs = pd.read_csv("flat_table/flat_rs_player_final_stats.csv", encoding="utf-8-sig")
 df_po = pd.read_csv("flat_table/flat_po_player_final_stats.csv", encoding="utf-8-sig")
+df_test = pd.read_csv("flat_table/flat_advanced_player.csv", encoding="utf-8-sig")
 
 
-# -------------------------------
-# Filter game and mintutes
-# revoir les teams : NJN = unknown = raw layer + team maping
-# -------------------------------
+
 
 # -------------------------------
 # Title
@@ -43,7 +42,6 @@ tab_basic, tab_advanced = st.tabs(["📊 Statistiques de base", "📈 Analyses a
 # I. BASIC STATISTICS
 # ===============================
 with tab_basic:
-    # Filters
     col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1], gap="large")
 
     with col1:
@@ -61,7 +59,6 @@ with tab_basic:
             key="season_filter"
         )
 
-    # ✅ NEW : filtre par saison
     with col3:
         df_temp = df_rs if season_filter == "Saison régulière" else df_po
         seasons = sorted(df_temp["SEASON"].unique(), reverse=True)
@@ -75,7 +72,6 @@ with tab_basic:
             key="stat_mode"
         )
 
-    # Force table mode if needed
     if metric_filter in ["Top 30", "Toutes les données"]:
         view_mode = "Tableau"
     else:
@@ -87,11 +83,9 @@ with tab_basic:
                 key="view_mode"
             )
 
-    # Select dataset with filters
     df = df_rs if season_filter == "Saison régulière" else df_po
     df = df[(df["SEASON"] == season_choice) & (df["G"] > 10) & (df["MP"] > 100)]
 
-    # Affichage conditionnel
     if metric_filter == "Leaders":
         afficher_offensif(df, season_choice, stat_mode, view_mode)
         st.divider()
@@ -132,59 +126,180 @@ with tab_basic:
         cols = pick_display_columns(df, key="all_data_cols")
         st.dataframe(df[cols], hide_index=True, use_container_width=True)
 
+
 # ===============================
 # II. ADVANCED ANALYTICS
 # ===============================
+
+import re  # ✅ nécessaire pour clean_player_names
+
+df_rs_adv = pd.read_csv("flat_table/flat_rs_player_final_stats.csv", encoding="utf-8-sig")
+df_po_adv = pd.read_csv("flat_table/flat_po_player_final_stats.csv", encoding="utf-8-sig")
+df_test_adv = pd.read_csv("flat_table/flat_advanced_player.csv", encoding="utf-8-sig")
+
+# ✅ Normaliser SEASON (utile pour les PO au format YYYY)
+for df_x in [df_rs_adv, df_po_adv]:
+    df_x["SEASON"] = df_x["SEASON"].astype(str)
+    df_x["SEASON"] = df_x["SEASON"].apply(
+        lambda x: f"{int(x)-1}-{str(x)[-2:]}" if len(x) == 4 else x
+    )
+
+# 🔧 Nettoyer les noms des joueurs uniquement pour Advanced
+def clean_player_names(df: pd.DataFrame) -> pd.DataFrame:
+    if "PLAYER" in df.columns:
+        df["PLAYER"] = df["PLAYER"].astype(str).apply(lambda x: re.sub(r"\*", "", x).strip())
+    return df
+
+df_rs_adv = clean_player_names(df_rs_adv)
+df_po_adv = clean_player_names(df_po_adv)
+df_test_adv = clean_player_names(df_test_adv)
+
+
+
+# ===============================
+# II. ADVANCED ANALYTICS
+# ===============================
+
+import re  # pour clean_player_names
+
+# --- Load datasets ---
+df_rs_adv = pd.read_csv("flat_table/flat_rs_player_final_stats.csv", encoding="utf-8-sig")
+df_po_adv = pd.read_csv("flat_table/flat_po_player_final_stats.csv", encoding="utf-8-sig")
+df_test_adv = pd.read_csv("flat_table/flat_advanced_player.csv", encoding="utf-8-sig")
+
+# --- Normaliser SEASON (utile pour PO en format YYYY) ---
+for df_x in [df_rs_adv, df_po_adv]:
+    df_x["SEASON"] = df_x["SEASON"].astype(str)
+    df_x["SEASON"] = df_x["SEASON"].apply(
+        lambda x: f"{int(x)-1}-{str(x)[-2:]}" if len(x) == 4 else x
+    )
+
+# --- Nettoyer les noms joueurs ---
+def clean_player_names(df: pd.DataFrame) -> pd.DataFrame:
+    if "PLAYER" in df.columns:
+        df["PLAYER"] = df["PLAYER"].astype(str).apply(lambda x: re.sub(r"\*", "", x).strip())
+    return df
+
+df_rs_adv = clean_player_names(df_rs_adv)
+df_po_adv = clean_player_names(df_po_adv)
+df_test_adv = clean_player_names(df_test_adv)
+
+# --- Ajouter Versatility Index ---
+def add_versatility_index(df: pd.DataFrame) -> pd.DataFrame:
+    if all(col in df.columns for col in ["PTS_PG", "TRB_PG", "AST_PG"]):
+        df["VI"] = ((df["PTS_PG"] * df["TRB_PG"] * df["AST_PG"]) ** (1/3)).round(2)
+    else:
+        df["VI"] = None
+    return df
+
+df_rs_adv = add_versatility_index(df_rs_adv)
+df_po_adv = add_versatility_index(df_po_adv)
+
+# --- Advanced Analytics UI ---
 with tab_advanced:
     st.markdown("### 📈 Analyses Avancées")
 
+    # Filtres
     col1, col2 = st.columns(2)
     with col1:
-        season = st.selectbox("Choisir une saison", sorted(df_rs["SEASON"].unique(), reverse=True))
+        player_choice = st.selectbox("Choisir un joueur", sorted(df_rs_adv["PLAYER"].unique()))
     with col2:
-        player = st.selectbox("Choisir un joueur", sorted(df_rs["PLAYER"].unique()))
+        season_choice = st.selectbox("Choisir une saison", sorted(df_rs_adv["SEASON"].unique(), reverse=True))
 
-    rs_stats = df_rs[(df_rs["SEASON"] == season) & (df_rs["PLAYER"] == player)]
-    po_stats = df_po[(df_po["SEASON"] == season) & (df_po["PLAYER"] == player)]
+    # Sélection des données
+    rs_filtered = df_rs_adv[(df_rs_adv["PLAYER"] == player_choice) & (df_rs_adv["SEASON"] == season_choice)]
+    po_filtered = df_po_adv[(df_po_adv["PLAYER"] == player_choice) & (df_po_adv["SEASON"] == season_choice)]
 
-    if rs_stats.empty or po_stats.empty:
-        st.warning("⚠️ Données incomplètes pour ce joueur/saison (pas de RS ou PO).")
+    # --- Comparaison RS vs PO ---
+    st.subheader(f"📊 Comparaison RS vs PO — {player_choice}, {season_choice}")
+
+    if rs_filtered.empty:
+        st.warning("⚠️ Pas de données RS.")
     else:
-        rs_row = rs_stats.iloc[0]
-        po_row = po_stats.iloc[0]
+        rs_row = rs_filtered.iloc[0]
 
-        metrics = {
-            "Points": "PTS_PG",
-            "Passes décisives": "AST_PG",
-            "Rebonds": "TRB_PG",
-            "Interceptions": "STL_PG",
-            "Contres": "BLK_PG",
-            "Minutes": "MP_PG",
-        }
+        if not po_filtered.empty:
+            po_row = po_filtered.iloc[0]
 
-        data = []
-        for label, col in metrics.items():
-            rs_val = rs_row[col]
-            po_val = po_row[col]
-            diff = po_val - rs_val
-            data.append([label, rs_val, po_val, diff])
+            # Différentiel basique
+            base_metrics = {
+                "Points": "PTS_PG",
+                "Passes décisives": "AST_PG",
+                "Rebonds": "TRB_PG",
+                "Interceptions": "STL_PG",
+                "Contres": "BLK_PG",
+                "Minutes": "MP_PG",
+            }
 
-        df_diff = pd.DataFrame(data, columns=["Stat", "RS", "PO", "Différentiel"])
+            data = []
+            for label, col in base_metrics.items():
+                if col in rs_row and col in po_row:
+                    rs_val = rs_row[col]
+                    po_val = po_row[col]
+                    diff = po_val - rs_val
+                    data.append([label, rs_val, po_val, diff])
 
-        st.markdown(f"#### 📊 {player} — Saison {season} (RS vs PO)")
-        st.dataframe(df_diff, hide_index=True, use_container_width=True)
+            df_diff = pd.DataFrame(data, columns=["Stat", "RS", "PO", "Différentiel"])
+            st.dataframe(df_diff, hide_index=True, use_container_width=True)
 
-        st.markdown("#### 📉 Comparaison RS vs PO")
-        fig_bar = px.bar(
-            df_diff.melt(id_vars="Stat", value_vars=["RS", "PO"], var_name="Contexte", value_name="Valeur"),
-            x="Stat", y="Valeur", color="Contexte", barmode="group",
-            text="Valeur", title=f"{player} — RS vs PO"
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
+            # Bar chart
+            fig_bar = px.bar(
+                df_diff.melt(id_vars="Stat", value_vars=["RS", "PO"], var_name="Contexte", value_name="Valeur"),
+                x="Stat", y="Valeur", color="Contexte", barmode="group",
+                text="Valeur", title=f"{player_choice} — RS vs PO ({season_choice})"
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
 
-        st.markdown("#### 🕸️ Profil Radar (RS vs PO)")
-        fig_radar = px.line_polar(
-            df_diff.melt(id_vars="Stat", value_vars=["RS", "PO"], var_name="Contexte", value_name="Valeur"),
-            r="Valeur", theta="Stat", color="Contexte", line_close=True
-        )
-        st.plotly_chart(fig_radar, use_container_width=True)
+            # --- Profil radar (avancé) ---
+            adv_metrics = {
+                "Valeur globale (PER)": "PER",
+                "Utilisation (USG%)": "USG%",
+                "Efficacité au tir (TS%)": "TS%",
+                "Polyvalence (VI)": "VI",
+                "Impact (WS)": "WS",
+            }
+
+            adv_data = []
+            for label, col in adv_metrics.items():
+                rs_val = rs_row.get(col, None)
+                po_val = po_row.get(col, None)
+                if rs_val is not None and po_val is not None:
+                    adv_data.append([label, rs_val, po_val])
+
+            df_adv_diff = pd.DataFrame(adv_data, columns=["Metric", "RS", "PO"])
+
+            st.markdown("#### 🕸 Profil avancé (RS vs PO)")
+            fig_radar = px.line_polar(
+                df_adv_diff.melt(id_vars="Metric", value_vars=["RS", "PO"], var_name="Contexte", value_name="Valeur"),
+                r="Valeur", theta="Metric", color="Contexte", line_close=True
+            )
+            st.plotly_chart(fig_radar, use_container_width=True)
+
+        else:
+            st.info(f"ℹ️ {player_choice} n'a pas de stats en playoffs pour la saison {season_choice}.")
+            st.dataframe(rs_filtered, hide_index=True, use_container_width=True)
+
+    # --- Jeu de données complet ---
+    st.markdown("### 📂 Jeu de données avancé (toutes les colonnes)")
+
+    dataset_choice = st.radio("Choisir dataset", ["RS", "PO", "Avancé"], horizontal=True)
+
+    player_choice_adv = st.selectbox(
+        "Choisir un joueur (dataset sélectionné)",
+        ["Tous"] + sorted(df_test_adv["PLAYER"].unique()),
+        key="adv_player_filter"
+    )
+
+    if dataset_choice == "RS":
+        df_base = df_rs_adv
+    elif dataset_choice == "PO":
+        df_base = df_po_adv
+    else:
+        df_base = df_test_adv
+
+    if player_choice_adv != "Tous":
+        df_display = df_base[df_base["PLAYER"] == player_choice_adv]
+    else:
+        df_display = df_base
+
+    st.dataframe(df_display, hide_index=True, use_container_width=True)
