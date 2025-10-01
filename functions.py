@@ -152,23 +152,67 @@ def compute_per_game(df: pd.DataFrame) -> pd.DataFrame:
             per_game_df[col + "_PG"] = (df[col] / df["G"]).round(1)
     return per_game_df
 
+
+# functions.py
+
+import pandas as pd
+
 def map_team_names(df: pd.DataFrame, abbr_col: str = "TM") -> pd.DataFrame:
     nba_teams_dict = {
-        'GSW':'Golden State Warriors','PHI':'Philadelphia 76ers','DEN':'Denver Nuggets',
-        'HOU':'Houston Rockets','BOS':'Boston Celtics','MIL':'Milwaukee Bucks',
-        'DAL':'Dallas Mavericks','PHO':'Phoenix Suns','NYK':'New York Knicks',
-        'LAL':'Los Angeles Lakers','LAC':'Los Angeles Clippers','SAC':'Sacramento Kings',
-        'CLE':'Cleveland Cavaliers','UTA':'Utah Jazz','ATL':'Atlanta Hawks',
-        'MIN':'Minnesota Timberwolves','IND':'Indiana Pacers','NOP':'New Orleans Pelicans',
-        'MEM':'Memphis Grizzlies','TOR':'Toronto Raptors','ORL':'Orlando Magic',
-        'DET':'Detroit Pistons','OKC':'Oklahoma City Thunder','BRK':'Brooklyn Nets',
-        'CHO':'Charlotte Hornets','MIA':'Miami Heat','SAS':'San Antonio Spurs',
-        'POR':'Portland Trail Blazers','WAS':'Washington Wizards','CHI':'Chicago Bulls'
+        # Équipes actuelles
+        "ATL": "Atlanta Hawks",
+        "BOS": "Boston Celtics",
+        "BRK": "Brooklyn Nets",
+        "CHI": "Chicago Bulls",
+        "CHO": "Charlotte Hornets",  # version actuelle (depuis 2014)
+        "CLE": "Cleveland Cavaliers",
+        "DAL": "Dallas Mavericks",
+        "DEN": "Denver Nuggets",
+        "DET": "Detroit Pistons",
+        "GSW": "Golden State Warriors",
+        "HOU": "Houston Rockets",
+        "IND": "Indiana Pacers",
+        "LAC": "Los Angeles Clippers",
+        "LAL": "Los Angeles Lakers",
+        "MEM": "Memphis Grizzlies",
+        "MIA": "Miami Heat",
+        "MIL": "Milwaukee Bucks",
+        "MIN": "Minnesota Timberwolves",
+        "NOP": "New Orleans Pelicans",
+        "NYK": "New York Knicks",
+        "OKC": "Oklahoma City Thunder",
+        "ORL": "Orlando Magic",
+        "PHI": "Philadelphia 76ers",
+        "PHO": "Phoenix Suns",
+        "POR": "Portland Trail Blazers",
+        "SAC": "Sacramento Kings",
+        "SAS": "San Antonio Spurs",
+        "TOR": "Toronto Raptors",
+        "UTA": "Utah Jazz",
+        "WAS": "Washington Wizards",
+
+        # Anciennes équipes / renommages
+        "NJN": "New Jersey Nets",     # devenu Brooklyn Nets (2012)
+        "NYN": "New York Nets",       # ABA → NBA avant de devenir NJN
+        "CHA": "Charlotte Bobcats",   # devenu Charlotte Hornets (2014)
+        "CHH": "Charlotte Hornets",   # original (1988–2002) → devenu New Orleans
+        "NOH": "New Orleans Hornets", # 2002–2013 avant Pelicans
+        "NOK": "New Orleans/Oklahoma City Hornets", # 2005–2007 (Katrina)
+        "NOJ": "New Orleans Jazz",    # 1974–1979 → Utah Jazz
+        "SEA": "Seattle SuperSonics", # devenu OKC en 2008
+        "VAN": "Vancouver Grizzlies", # devenu Memphis en 2001
+        "BUF": "Buffalo Braves",      # devenu Los Angeles Clippers
+        "KCK": "Kansas City Kings",   # devenu Sacramento en 1985
+        "SDC": "San Diego Clippers",  # avant déménagement à Los Angeles
+        "WSB": "Washington Bullets",  # renommé en Wizards (1997)
     }
+
     if abbr_col not in df.columns:
         return df
-    df["TEAM"] = df[abbr_col].apply(lambda abv: nba_teams_dict.get(abv, "Unknown"))
+
+    df["TEAM"] = df[abbr_col].apply(lambda abv: nba_teams_dict.get(str(abv), "Unknown"))
     return df
+
 
 def expand_awards(df: pd.DataFrame) -> pd.DataFrame:
     if "AWARDS" not in df.columns:
