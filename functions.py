@@ -192,25 +192,33 @@ def map_team_names(df: pd.DataFrame, abbr_col: str = "TM") -> pd.DataFrame:
         "WAS": "Washington Wizards",
 
         # Anciennes équipes / renommages
-        "NJN": "New Jersey Nets",     # devenu Brooklyn Nets (2012)
-        "NYN": "New York Nets",       # ABA → NBA avant de devenir NJN
-        "CHA": "Charlotte Bobcats",   # devenu Charlotte Hornets (2014)
-        "CHH": "Charlotte Hornets",   # original (1988–2002) → devenu New Orleans
-        "NOH": "New Orleans Hornets", # 2002–2013 avant Pelicans
-        "NOK": "New Orleans/Oklahoma City Hornets", # 2005–2007 (Katrina)
-        "NOJ": "New Orleans Jazz",    # 1974–1979 → Utah Jazz
-        "SEA": "Seattle SuperSonics", # devenu OKC en 2008
-        "VAN": "Vancouver Grizzlies", # devenu Memphis en 2001
-        "BUF": "Buffalo Braves",      # devenu Los Angeles Clippers
-        "KCK": "Kansas City Kings",   # devenu Sacramento en 1985
-        "SDC": "San Diego Clippers",  # avant déménagement à Los Angeles
-        "WSB": "Washington Bullets",  # renommé en Wizards (1997)
+        "NJN": "New Jersey Nets",
+        "NYN": "New York Nets",
+        "CHA": "Charlotte Bobcats",
+        "CHH": "Charlotte Hornets",
+        "NOH": "New Orleans Hornets",
+        "NOK": "New Orleans/Oklahoma City Hornets",
+        "NOJ": "New Orleans Jazz",
+        "SEA": "Seattle SuperSonics",
+        "VAN": "Vancouver Grizzlies",
+        "BUF": "Buffalo Braves",
+        "KCK": "Kansas City Kings",
+        "SDC": "San Diego Clippers",
+        "WSB": "Washington Bullets",
     }
 
     if abbr_col not in df.columns:
         return df
 
-    df["TEAM"] = df[abbr_col].apply(lambda abv: nba_teams_dict.get(str(abv), "Unknown"))
+    def resolve_team(abv):
+        abv_str = str(abv).strip()
+        # Cas nTM (2TM, 3TM, …) → on garde tel quel
+        if abv_str.endswith("TM") and abv_str[0].isdigit():
+            return abv_str
+        # Cas normal → mapping via dict
+        return nba_teams_dict.get(abv_str, "Unknown")
+
+    df["TEAM"] = df[abbr_col].apply(resolve_team)
     return df
 
 
