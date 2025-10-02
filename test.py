@@ -1,216 +1,116 @@
-import pandas as pd
-import re
+# -*- coding: utf-8 -*-
 import streamlit as st
+import pandas as pd
+import os
 
-from stat_functions import (
-    afficher_offensif_v2,
-    afficher_defensif_v2,
-    graphique_barres_v2,
-    pick_display_columns,
-    compute_player_career_stats,
-    display_kpi_cards,
-    compare_rs_vs_po,
-    compare_seasons 
-)
-
-import plotly.express as px
+from nav_bar import show_navbar
+from stat_functions import display_awards_kpi
 
 # -------------------------------
-# Clean player names
+# Page Config
 # -------------------------------
-def clean_player_names(df: pd.DataFrame) -> pd.DataFrame:
-    if "PLAYER" in df.columns:
-        df["PLAYER"] = df["PLAYER"].astype(str).apply(lambda x: re.sub(r"\*", "", x).strip())
-    return df
-
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="NBA Dashboard", layout="wide")
 
 # -------------------------------
-# Load Data
+# Navigation Bar
 # -------------------------------
-df_rs = pd.read_csv("flat_table/flat_rs_player.csv", encoding="utf-8-sig")
-df_po = pd.read_csv("flat_table/flat_po_player.csv", encoding="utf-8-sig")
+show_navbar()
 
-df_rs = clean_player_names(df_rs)
-df_po = clean_player_names(df_po)
+# -------------------------------
+# Load Data Helpers (cached)
+# -------------------------------
+FLAT_BASE = "flat_table"
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_flat(name: str) -> pd.DataFrame:
+    path = f"{FLAT_BASE}/{name}.csv"
+    if not os.path.exists(path):
+        return pd.DataFrame()
+    return pd.read_csv(path, encoding="utf-8-sig")
+
+# -------------------------------
+# Load all flat tables
+# -------------------------------
+flats = {
+    "flat_awards": load_flat("flat_awards"),
+    "flat_east_standing": load_flat("flat_east_standing"),
+    "flat_west_standing": load_flat("flat_west_standing"),
+    "flat_team_per_poss_stats": load_flat("flat_team_per_poss_stats"),
+    "flat_all_nba_teams": load_flat("flat_all_nba_teams"),
+    "flat_all_def_teams": load_flat("flat_all_def_teams"),
+    "flat_all_rookie_teams": load_flat("flat_all_rookie_teams"),
+     #"flat_salaries": load_flat("flat_salaries"),  # example denormalized salaries
+}
 
 # -------------------------------
 # Title
 # -------------------------------
-st.markdown(
-    "<h1 style='text-align: center;'>NBA Statistics</h1>", 
-    unsafe_allow_html=True
-)
-st.markdown(
-    "<h3 style='text-align: center; color: gray;'>The numbers behind the performances</h3>", 
-    unsafe_allow_html=True
-)
+st.markdown("<h1 style='text-align: center;'>🏀 NBA Dashboard</h1>", unsafe_allow_html=True)
+
+# -------------------------------
+# Season Selector
+# -------------------------------
+all_seasons = set()
+for df in flats.values():
+    if "SEASON" in df.columns:
+        all_seasons.update(df["SEASON"].dropna().unique())
+
+if all_seasons:
+    season_filter = st.selectbox("🔎 Select a season", sorted(all_seasons, reverse=True))
+else:
+    season_filter = None
+    st.warning("⚠️ No seasons available in the flat tables")
+
+# -------------------------------
+# KPI Awards (MVP, ROY, Leaders)
+# -------------------------------
+if not flats["flat_awards"].empty and season_filter:
+    st.markdown("## 🏆 Awards Overview")
+    display_awards_kpi(flats["flat_awards"], season_filter)
 
 # -------------------------------
 # Tabs
 # -------------------------------
-tab_basic, tab_advanced = st.tabs(["Basic Statistics", "Player Analytics"])
+tab_conf, tab_eval, tab_honors, tab_awards, tab_salaries = st.tabs([
+    "Conference Standings",
+    "Team Evaluations",
+    "Honors",
+    "Awards",
+    "Salaries"
+])
 
+# -------------------------------
+# Conference Standings Tab
+# -------------------------------
+with tab_conf:
+    # TODO: Show East/West standings
+    pass
 
-# ===============================
-# I. BASIC STATISTICS
-# ===============================
-with tab_basic:
-    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1], gap="large")
+# -------------------------------
+# Team Evaluations Tab
+# -------------------------------
+with tab_eval:
+    # TODO: Show ORTG / DRTG / NRTG
+    pass
 
-    with col1:
-        metric_filter = st.selectbox(
-            "Choose a view", 
-            ["Leaders", "Top 30", "All Data"],
-            key="metric_filter"
-        )
+# -------------------------------
+# Honors Tab
+# -------------------------------
+with tab_honors:
+    # TODO: Show All-NBA / All-Defensive / All-Rookie Teams
+    pass
 
-    with col2:
-        season_filter = st.radio(
-            "Season Part", 
-            ["Regular Season", "Playoffs"], 
-            horizontal=True,
-            key="season_filter"
-        )
+# -------------------------------
+# Awards Tab
+# -------------------------------
+with tab_awards:
+    # TODO: Show raw awards table
+    pass
 
-    with col3:
-        df_temp = df_rs if season_filter == "Regular Season" else df_po
-        seasons = sorted(df_temp["SEASON"].unique(), reverse=True)
-        season_choice = st.selectbox("Season", seasons, key="season_choice")
+# -------------------------------
+# Salaries Tab
+# -------------------------------
+with tab_salaries:
+    # TODO: Show player salaries (denormalized)
+    pass
 
-    with col4:
-        stat_mode = st.radio(
-            "Statistic Mode", 
-            ["Per Game", "Total"], 
-            horizontal=True,
-            key="stat_mode"
-        )
-
-    # Force display as table only (disable bar chart for now)
-    view_mode = "Tableau"
-
-    df = df_rs if season_filter == "Regular Season" else df_po
-    df = df[(df["SEASON"] == season_choice) & (df["G"] > 10) & (df["MP"] > 100)]
-
-    # Leaders
-    if metric_filter == "Leaders":
-        afficher_offensif_v2(df, season_choice, stat_mode, view_mode)
-        st.divider()
-        afficher_defensif_v2(df, season_choice, stat_mode, view_mode)
-
-    # Top 30
-    elif metric_filter == "Top 30":
-        stat_choice = st.selectbox(
-            "Select a statistic",
-            ["Points", "Assists", "Total Rebounds", "Offensive Rebounds",
-             "Defensive Rebounds", "Minutes", "3-Pointers Made", "Free Throws Made",
-             "Blocks", "Steals", "Turnovers"]
-        )
-        stat_map = {
-            "Points": "PTS",
-            "Assists": "AST",
-            "Total Rebounds": "TRB",
-            "Offensive Rebounds": "ORB",
-            "Defensive Rebounds": "DRB",
-            "Minutes": "MP",
-            "3-Pointers Made": "3P",
-            "Free Throws Made": "FT",
-            "Blocks": "BLK",
-            "Steals": "STL",
-            "Turnovers": "TOV",
-        }
-
-        suffix = "_PG" if stat_mode == "Per Game" else ""
-        chosen_col = stat_map[stat_choice] + suffix
-
-        top30 = df[["PLAYER", "TEAM", chosen_col]].sort_values(by=chosen_col, ascending=False).head(30)
-
-        st.markdown(f"## Top 30 {stat_choice} ({stat_mode}) - {season_choice} ({season_filter})")
-
-        st.dataframe(top30, hide_index=True, use_container_width=True)
-
-        # Disabled bar chart for now
-        # fig = graphique_barres_v2(top30, chosen_col, f"Top 30 {stat_choice}")
-        # st.plotly_chart(fig, use_container_width=True)
-
-    # All data
-    elif metric_filter == "All Data":
-        st.markdown(f"## {season_filter} — Complete Data ({season_choice})")
-
-        cols = pick_display_columns(df, key="all_data_cols")
-        st.dataframe(df[cols], hide_index=True, use_container_width=True)
-
-
-# ===============================
-# II. PLAYER ANALYTICS
-# ===============================
-with tab_advanced:
-    # -------------------------------
-    # KPI CARDS
-    # -------------------------------
-    st.markdown("### Player Analytics")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        season_type_choice = st.radio(
-            "Select Season Type", ["Regular Season", "Playoffs"],
-            horizontal=True, key="analytics_season_type"
-        )
-    with col2:
-        player_choice = st.selectbox(
-            "Select a player", sorted(df_rs["PLAYER"].unique()), key="analytics_player"
-        )
-
-    df_source = df_rs if season_type_choice == "Regular Season" else df_po
-
-    st.markdown(f"#### {player_choice}'s Career ({season_type_choice})")
-
-    # === Nouveau KPI : total de matchs joués ===
-    total_games = df_source[df_source["PLAYER"] == player_choice]["G"].sum()
-    st.metric(label="Total Games Played", value=total_games)
-
-    # KPIs existants
-    display_kpi_cards(df_source, player_choice, season_type_choice)
-
-
-    # -------------------------------
-    # BAR CHART COMPARISONS
-    # -------------------------------
-    st.markdown("### Performance Comparisons")
-
-    # Graph 1 : RS vs PO (same season)
-    st.subheader("Regular Season vs Playoffs (same season)")
-    col1, col2 = st.columns(2)
-    with col1:
-        player_choice = st.selectbox("Select a player", sorted(df_rs["PLAYER"].unique()), key="comp_rs_po_player")
-    with col2:
-        season_choice = st.selectbox("Select a season", sorted(df_rs["SEASON"].unique(), reverse=True), key="comp_rs_po_season")
-
-    compare_rs_vs_po(df_rs, df_po, player_choice, season_choice)
-
-    # Graph 2 : RS season vs RS season
-    st.subheader("Compare Regular Season across two seasons")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        player_choice_rs = st.selectbox("Select a player", sorted(df_rs["PLAYER"].unique()), key="comp_rs_player")
-    with col2:
-        season1_rs = st.selectbox("Season 1", sorted(df_rs["SEASON"].unique(), reverse=True), key="comp_rs_season1")
-    with col3:
-        season2_rs = st.selectbox("Season 2", sorted(df_rs["SEASON"].unique(), reverse=True), key="comp_rs_season2")
-
-    if season1_rs != season2_rs:
-        compare_seasons(df_rs, player_choice_rs, season1_rs, season2_rs, context_label="Regular Season")
-
-    # Graph 3 : PO season vs PO season
-    st.subheader("Compare Playoffs across two seasons")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        player_choice_po = st.selectbox("Select a player", sorted(df_po["PLAYER"].unique()), key="comp_po_player")
-    with col2:
-        season1_po = st.selectbox("Season 1", sorted(df_po["SEASON"].unique(), reverse=True), key="comp_po_season1")
-    with col3:
-        season2_po = st.selectbox("Season 2", sorted(df_po["SEASON"].unique(), reverse=True), key="comp_po_season2")
-
-    if season1_po != season2_po:
-        compare_seasons(df_po, player_choice_po, season1_po, season2_po, context_label="Playoffs")

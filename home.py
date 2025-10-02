@@ -1,180 +1,297 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
+import os
+
+from nav_bar import show_navbar
+from stat_functions import display_awards_kpi
 
 # -------------------------------
-# Configuration de la Page
+# Page Config
 # -------------------------------
-st.set_page_config(page_title="Tableau de Bord NBA", layout="wide") # Configure le titre de la page et la disposition large
+st.set_page_config(page_title="NBA Dashboard", layout="wide")
 
 # -------------------------------
-# Affichage de la Barre de Navigation
+# Navigation Bar
 # -------------------------------
-
-# Note : La barre de navigation est actuellement implémentée directement via st.page_link
-c1, c2, c3, c4,c5= st.columns(5) # Crée 5 colonnes pour les liens de navigation
-with c1: st.page_link("home.py",                   label=" Accueil") # Lien vers la page d'accueil
-with c2: st.page_link("pages/1_Team.py",           label=" Équipe") # Lien vers la page d'équipe
-with c3: st.page_link("pages/2_Statistics.py",     label=" Statistiques") # Lien vers la page de statistiques
-with c4: st.page_link("pages/3_Champ_Historic.py", label=" Historique") # Lien vers la page historique des champions
-with c5: st.page_link("pages/4_Trade_Machine.py",  label=" Machine à Trade") # Lien vers la machine à trade
-
+show_navbar()
 
 # -------------------------------
-# Chargement des Données (cache) => But : éviter de relire 5 Excel à chaque interaction.
+# Load Data Helpers (cached)
 # -------------------------------
+FLAT_BASE = "flat_table"
+
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_data():
-    df_west  = pd.read_excel("data/df_western_conf_standing.xlsx")
-    df_east  = pd.read_excel("data/df_eastern_conf_standing.xlsx")
-    df_team_ratings = pd.read_excel("data/df_nba_team_reg_season_ratings.xlsx")
-    df_players = pd.read_excel("data/df_reg_season_players_filtered.xlsx")
-    df_salaries = pd.read_excel("data/df_nba_players_salaries.xlsx")
-    return df_west, df_east, df_team_ratings, df_players, df_salaries
-
-with st.spinner("Chargement des données..."):
-    df_west, df_east, df_team_ratings, df_players, df_salaries = load_data()
-
-# ton filtrage existant
-df_players = df_players[(df_players["GP"] > 10) & (df_players["MIN_PG"] > 10)]
+def load_flat(name: str) -> pd.DataFrame:
+    path = f"{FLAT_BASE}/{name}.csv"
+    if not os.path.exists(path):
+        return pd.DataFrame()
+    return pd.read_csv(path, encoding="utf-8-sig")
 
 # -------------------------------
-# Titre de la Page
+# Load all flat tables
 # -------------------------------
-st.markdown(
-    "<h1 style='text-align: center;'> Aperçu NBA 2024-25</h1>",
-    unsafe_allow_html=True # Permet le rendu HTML
-)
-st.markdown(
-    "<h4 style='text-align: center; color: gray;'>Un Regard Global sur la Ligue</h4>",
-    unsafe_allow_html=True # Permet le rendu HTML
-)
+flats = {
+    "flat_awards": load_flat("flat_awards"),
+    "flat_east_standing": load_flat("flat_east_standing"),
+    "flat_west_standing": load_flat("flat_west_standing"),
+    "flat_rs_player": load_flat("flat_rs_player"),  # 🔹 added for Top Players
+    "flat_team_per_poss_stats": load_flat("flat_team_per_poss_stats"),
+    "flat_all_nba_teams": load_flat("flat_all_nba_teams"),
+    "flat_all_def_teams": load_flat("flat_all_def_teams"),
+    "flat_all_rookie_teams": load_flat("flat_all_rookie_teams"),
+    "flat_salaries_2026": load_flat("flat_salaries_2026"),  
+}
 
+# -------------------------------
+# Title
+# -------------------------------
+st.markdown("<h1 style='text-align: center;'>🏀 NBA Dashboard</h1>", unsafe_allow_html=True)
 
 # -------------------------------
-# Onglets de Navigation
+# Season Selector
 # -------------------------------
-# Crée des onglets pour organiser le contenu de la page
-tab1, tab2, tab3, tab4 = st.tabs([
-    " Classements des Conférences",
-    " Meilleurs Joueurs",
-    " Évaluations des Équipes",
-    " Salaires"
+all_seasons = set()
+for df in flats.values():
+    if "SEASON" in df.columns:
+        all_seasons.update(df["SEASON"].dropna().unique())
+
+if all_seasons:
+    season_filter = st.selectbox("🔎 Select a season", sorted(all_seasons, reverse=True))
+else:
+    season_filter = None
+    st.warning("No seasons available in the flat tables")
+
+# -------------------------------
+# KPI Awards (MVP, ROY, Leaders)
+# -------------------------------
+if not flats["flat_awards"].empty and season_filter:
+    st.markdown("## Awards Overview")
+    display_awards_kpi(flats["flat_awards"], season_filter)
+
+# -------------------------------
+# Tabs
+# -------------------------------
+tab_conf, tab_top_players, tab_honors, tab_salaries = st.tabs([
+    "Conference Standings",
+    "Top Players",
+    "Honors",
+    "Salaries"
 ])
 
 # -------------------------------
-# Contenu de l'Onglet 1 : Classements des Conférences
+# Conference Standings Tab
 # -------------------------------
-with tab1:
-    st.markdown("##  Classements des Conférences") # Titre de l'onglet
+with tab_conf:
+    st.markdown("<p style='font-size:12px; color:gray;'>* For playoff teams</p>", unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2) # Crée deux colonnes pour afficher les conférences côte à côte
+    col1, col2 = st.columns(2)
+
+    # Eastern Conference
     with col1:
-        st.markdown("### Conférence Ouest") # Sous-titre pour la Conférence Ouest
-        st.dataframe(df_west, hide_index=True, use_container_width=True) # Affiche le DataFrame de la Conférence Ouest
+        df_east = flats["flat_east_standing"].copy()
+        if not df_east.empty:
+            df_east = df_east.rename(columns={"EASTERN_CONFERENCE": "TEAM"})
+            df_east = df_east[~df_east["TEAM"].str.contains("Division", case=False, na=False)]
+            
+            if season_filter:
+                df_east = df_east[df_east["SEASON"] == season_filter]
+
+            cols_east = ["TEAM", "W", "L", "W/L%", "GB", "SEASON"]
+            st.markdown("### Eastern Conference")
+            st.dataframe(df_east[cols_east], hide_index=True, use_container_width=True)
+        else:
+            st.info("No Eastern Conference data available.")
+
+    # Western Conference
     with col2:
-        st.markdown("### Conférence Est") # Sous-titre pour la Conférence Est
-        st.dataframe(df_east, hide_index=True, use_container_width=True) # Affiche le DataFrame de la Conférence Est
+        df_west = flats["flat_west_standing"].copy()
+        if not df_west.empty:
+            df_west = df_west.rename(columns={"WESTERN_CONFERENCE": "TEAM"})
+            df_west = df_west[~df_west["TEAM"].str.contains("Division", case=False, na=False)]
+            
+            if season_filter:
+                df_west = df_west[df_west["SEASON"] == season_filter]
+
+            cols_west = ["TEAM", "W", "L", "W/L%", "GB", "SEASON"]
+            st.markdown("### Western Conference")
+            st.dataframe(df_west[cols_west], hide_index=True, use_container_width=True)
+        else:
+            st.info("No Western Conference data available.")
 
 # -------------------------------
-# Contenu de l'Onglet 2 : Meilleurs Joueurs
+# Top Players Tab
 # -------------------------------
-with tab2:
-    st.markdown("##  Top 3 des Joueurs par Métriques Clés") # Titre de l'onglet
+with tab_top_players:
+    st.markdown("## Top 3 Players by Key Metrics (Regular Season Only)")
 
-    # Filtre de sélection d'équipe unique avec l'option "Toutes les équipes"
-    all_teams = sorted(df_players["TEAM"].dropna().unique()) # Récupère la liste unique des équipes
-    team_choice = st.selectbox(
-        "Équipe",
-        options=["Toutes les équipes"] + all_teams, # Ajoute "Toutes les équipes" comme première option
-        index=0, # Sélectionne la première option par défaut
-        key="top_players_team_filter_single" # Clé unique pour le widget
+    df_players = flats["flat_rs_player"].copy()
+
+    if not df_players.empty:
+        if season_filter:
+            df_players = df_players[df_players["SEASON"] == season_filter]
+
+        # Filtering out players with too few games/minutes
+        if "G" in df_players.columns and "MP" in df_players.columns:
+            df_players = df_players[(df_players["G"] > 10) & (df_players["MP"] > 100)]
+
+        all_teams = sorted(df_players["TEAM"].dropna().unique())
+        team_choice = st.selectbox(
+            "Select Team",
+            options=["All Teams"] + all_teams,
+            index=0,
+            key="top_players_team_filter"
+        )
+
+        df_tp = df_players.copy()
+        if team_choice != "All Teams":
+            df_tp = df_tp[df_tp["TEAM"] == team_choice]
+
+        metrics = {
+            "Points Per Game": "PTS_PG",
+            "Rebounds Per Game": "TRB_PG",
+            "Assists Per Game": "AST_PG"
+        }
+
+        for label, col_name in metrics.items():
+            if col_name in df_tp.columns:
+                top3 = (
+                    df_tp[["PLAYER", "TEAM", col_name]]
+                    .sort_values(by=col_name, ascending=False)
+                    .head(3)
+                )
+                st.markdown(f"### {label}")
+                st.dataframe(top3, hide_index=True, use_container_width=True)
+    else:
+        st.info("No regular season player data available for this season.")
+
+# -------------------------------
+# Honors Tab
+# -------------------------------
+with tab_honors:
+    st.markdown("## Honors")
+
+    # === All-NBA Teams ===
+    df_all_nba = flats["flat_all_nba_teams"].copy()
+    if not df_all_nba.empty:
+        if season_filter:
+            df_all_nba = df_all_nba[df_all_nba["SEASON"] == season_filter]
+
+        st.markdown("### All-NBA Teams")
+        cols_to_show = []
+        for c in ["1ST_TEAM", "2ND_TEAM", "3RD_TEAM", "SEASON"]:
+            if c in df_all_nba.columns and not df_all_nba[c].isna().all():
+                cols_to_show.append(c)
+
+        st.dataframe(df_all_nba[cols_to_show], hide_index=True, use_container_width=True)
+    else:
+        st.info("No All-NBA Teams data available.")
+
+    # === All-Defensive Teams ===
+    df_all_def = flats["flat_all_def_teams"].copy()
+    if not df_all_def.empty:
+        if season_filter:
+            df_all_def = df_all_def[df_all_def["SEASON"] == season_filter]
+
+        st.markdown("### All-Defensive Teams")
+        cols_to_show = []
+        for c in ["1ST_TEAM", "2ND_TEAM", "SEASON"]:
+            if c in df_all_def.columns and not df_all_def[c].isna().all():
+                cols_to_show.append(c)
+
+        st.dataframe(df_all_def[cols_to_show], hide_index=True, use_container_width=True)
+    else:
+        st.info("No All-Defensive Teams data available.")
+
+    # === All-Rookie Teams ===
+    df_all_rookie = flats["flat_all_rookie_teams"].copy()
+    if not df_all_rookie.empty:
+        if season_filter:
+            df_all_rookie = df_all_rookie[df_all_rookie["SEASON"] == season_filter]
+
+        st.markdown("### All-Rookie Teams")
+        cols_to_show = []
+        for c in ["1ST_TEAM", "2ND_TEAM", "SEASON"]:
+            if c in df_all_rookie.columns and not df_all_rookie[c].isna().all():
+                cols_to_show.append(c)
+
+        st.dataframe(df_all_rookie[cols_to_show], hide_index=True, use_container_width=True)
+    else:
+        st.info("No All-Rookie Teams data available.")
+
+# -------------------------------
+# Salaries Tab
+# -------------------------------
+
+from functions import map_team_names 
+
+# -------------------------------
+# Salaries Tab
+# -------------------------------
+with tab_salaries:
+    st.markdown("## Salaries")
+    st.markdown(
+        "<p style='font-size:14px; color:gray;'>This table represents the latest update of NBA player contracts starting from the 2025-26 season.</p>",
+        unsafe_allow_html=True
     )
 
-    # Applique le filtre localement
-    df_tp = df_players.copy() # Crée une copie du DataFrame des joueurs
-    if team_choice != "Toutes les équipes": # Si une équipe spécifique est choisie
-        df_tp = df_tp[df_tp["TEAM"] == team_choice] # Filtre le DataFrame par l'équipe sélectionnée
+    df_salaries = flats["flat_salaries_2026"].copy()
 
-    metrics = {
-        "Points Par Match": "PTS_PG",
-        "Rebonds Par Match": "REB_PG",
-        "Passes Décisives Par Match": "AST_PG"
-    } # Dictionnaire des métriques à afficher
+    # Drop last column if it's useless (-9999)
+    if df_salaries.columns[-1] == "-9999":
+        df_salaries = df_salaries.iloc[:, :-1]
 
-    # Itère sur chaque métrique pour afficher les 3 meilleurs joueurs
-    for label, col_name in metrics.items():
-
-        top3 = (
-            df_tp[["PLAYER_NAME", "TEAM", col_name]] # Sélectionne les colonnes Joueur, Équipe et la métrique
-            .sort_values(by=col_name, ascending=False) # Trie par la métrique en ordre décroissant
-            .head(3) # Prend les 3 premiers joueurs
-        )
-        st.markdown(f"### {label}") # Affiche le titre de la métrique
-        st.dataframe(top3, hide_index=True, use_container_width=True) # Affiche le DataFrame des 3 meilleurs
-
-# -------------------------------
-# Contenu de l'Onglet 3 : Évaluations des Équipes
-# -------------------------------
-with tab3:
-    st.markdown("##  Évaluations de Performance des Équipes (Top 10)") # Titre de l'onglet
-
-    col1, col2, col3 = st.columns(3) # Crée trois colonnes pour les différentes évaluations
-
-    # Offensive Rating (plus élevé est mieux)
-    with col1:
-        st.markdown("### Évaluation Offensive") # Sous-titre
-        off = df_team_ratings[["TEAM", "ORTG"]].sort_values(by="ORTG", ascending=False).head(10) # Trie et prend les 10 meilleures
-        st.dataframe(off, hide_index=True, use_container_width=True) # Affiche le DataFrame
-       
-
-    # Defensive Rating (plus faible est mieux → ordre croissant)
-    with col2:
-        st.markdown("### Évaluation Défensive") # Sous-titre
-        deff = df_team_ratings[["TEAM", "DRTG"]].sort_values(by="DRTG", ascending=True).head(10) # Trie et prend les 10 meilleures
-        st.dataframe(deff, hide_index=True, use_container_width=True) # Affiche le DataFrame
-        
-
-    # Net Rating (plus élevé est mieux)
-    with col3:
-        st.markdown("### Évaluation Nette") # Sous-titre
-        net = df_team_ratings[["TEAM", "NRTG"]].sort_values(by="NRTG", ascending=False).head(10) # Trie et prend les 10 meilleures
-        st.dataframe(net, hide_index=True, use_container_width=True) # Affiche le DataFrame
-
-# -------------------------------
-# Contenu de l'Onglet 4 : Salaires (team -> joueurs)
-# -------------------------------
-with tab4:
-    st.markdown("## Salaires")
-
-    TEAM_ALL, PLAYER_ALL = "Toutes les équipes", "Tous les joueurs"
-
-    # 1) Sélecteur Équipe
-    team_options = [TEAM_ALL] + sorted(df_salaries["TEAM"].dropna().unique())
-    team_sel = st.selectbox("Équipe", team_options, index=0, key="sal_team")
-
-    # 2) Liste des joueurs dépendante de l'équipe
-    if team_sel == TEAM_ALL:
-        player_options = [PLAYER_ALL] + sorted(df_salaries["PLAYER"].dropna().unique())
+    if df_salaries.empty:
+        st.info("No salaries data available.")
     else:
-        player_options = [PLAYER_ALL] + sorted(
-            df_salaries.loc[df_salaries["TEAM"] == team_sel, "PLAYER"].dropna().unique()
-        )
+        # Normalize column names
+        df_salaries = df_salaries.rename(columns={
+            "Player": "PLAYER",
+            "Tm": "TM"
+        })
 
-    # Conserver la sélection joueur si encore valide, sinon reset sur "Tous"
-    prev_player = st.session_state.get("sal_player", PLAYER_ALL)
-    player_index = player_options.index(prev_player) if prev_player in player_options else 0
-    player_sel = st.selectbox("Joueur", player_options, index=player_index, key="sal_player")
+        # ✅ Add full team name
+        df_salaries = map_team_names(df_salaries, abbr_col="TM")
 
-    # 3) Filtrage (sans jamais modifier l’équipe via le joueur)
-    df_filtered = df_salaries
-    if team_sel != TEAM_ALL:
-        df_filtered = df_filtered[df_filtered["TEAM"] == team_sel]
-    if player_sel != PLAYER_ALL:
-        df_filtered = df_filtered[df_filtered["PLAYER"] == player_sel]
+        TEAM_ALL, PLAYER_ALL = "All Teams", "All Players"
 
-    # 4) Affichage
-    if df_filtered.empty:
-        st.info("Aucun résultat pour ces filtres.")
-    else:
-        st.dataframe(df_filtered, hide_index=True, use_container_width=True)
+        # === Team filter ===
+        team_options = [TEAM_ALL] + sorted(df_salaries["TEAM"].dropna().unique())
+        team_sel = st.selectbox("Team", team_options, index=0, key="sal_team")
+
+        # === Player filter ===
+        if team_sel == TEAM_ALL:
+            player_options = [PLAYER_ALL] + sorted(df_salaries["PLAYER"].dropna().unique())
+        else:
+            player_options = [PLAYER_ALL] + sorted(
+                df_salaries.loc[df_salaries["TEAM"] == team_sel, "PLAYER"].dropna().unique()
+            )
+
+        prev_player = st.session_state.get("sal_player", PLAYER_ALL)
+        player_index = player_options.index(prev_player) if prev_player in player_options else 0
+        player_sel = st.selectbox("Player", player_options, index=player_index, key="sal_player")
+
+        # === Apply filters ===
+        df_filtered = df_salaries.copy()
+        if team_sel != TEAM_ALL:
+            df_filtered = df_filtered[df_filtered["TEAM"] == team_sel]
+        if player_sel != PLAYER_ALL:
+            df_filtered = df_filtered[df_filtered["PLAYER"] == player_sel]
+
+        # === Display ===
+        if df_filtered.empty:
+            st.info("No results for these filters.")
+        else:
+            # Drop TM (acronym) for display
+            if "TM" in df_filtered.columns:
+                df_filtered = df_filtered.drop(columns=["TM"])
+
+            # Reorder columns so TEAM (full name) is right after PLAYER
+            cols = df_filtered.columns.tolist()
+            if "PLAYER" in cols and "TEAM" in cols:
+                cols.remove("TEAM")
+                player_index = cols.index("PLAYER")
+                cols.insert(player_index + 1, "TEAM")
+                df_filtered = df_filtered[cols]
+
+            st.dataframe(df_filtered, hide_index=True, use_container_width=True)

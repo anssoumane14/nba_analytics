@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import streamlit as st
+from stat_functions import display_awards_kpi
 
 FLAT_BASE = "flat_table"
 
@@ -103,6 +104,8 @@ with tab_teams:
 # Honors
 # -------------------------------
 with tab_honors:
+    st.markdown("## 🏆 Awards KPI")
+    display_awards_kpi(flats["flat_awards"], season_filter)
     for name in ["flat_all_nba_teams", "flat_all_def_teams", "flat_all_rookie_teams"]:
         df = flats[name]
         st.markdown(f"### {name}")

@@ -237,6 +237,52 @@ def compare_seasons(df, player: str, season1: str, season2: str, context_label="
 # -------------------------------
 # KPI Utilities
 # -------------------------------
+
+def render_kpi(df: pd.DataFrame, value_col: str, title: str):
+    """Affiche une carte KPI simple pour la valeur max d'une colonne donnée."""
+    if df.empty or value_col not in df.columns or df[value_col].dropna().empty:
+        st.info(f"No data for {title}.")
+        return
+
+    idx = df[value_col].idxmax()
+    row = df.loc[idx]
+    val = float(row[value_col])
+    player_name = str(row.get("PLAYER", "Unknown"))
+
+    width_px = 280
+    st.markdown(
+        f"""
+        <div style="background:#17408B; color:#FFFFFF; padding:16px; border-radius:12px; width:{width_px}px;">
+            <div style="font-size:14px; opacity:.85; margin-bottom:6px; text-align:center;">{title}</div>
+            <div style="font-size:32px; font-weight:700; line-height:1; text-align:center;">{val:.1f}</div>
+            <div style="font-size:13px; opacity:.9; margin-top:6px; text-align:center;">{player_name}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+def render_kpi(df: pd.DataFrame, value_col: str, title: str):
+    """Affiche une carte KPI simple pour la valeur max d'une colonne donnée."""
+    if df.empty or value_col not in df.columns or df[value_col].dropna().empty:
+        st.info(f"No data for {title}.")
+        return
+
+    idx = df[value_col].idxmax()
+    row = df.loc[idx]
+    val = float(row[value_col])
+    player_name = str(row.get("PLAYER", "Unknown"))
+
+    width_px = 280
+    st.markdown(
+        f"""
+        <div style="background:#17408B; color:#FFFFFF; padding:16px; border-radius:12px; width:{width_px}px;">
+            <div style="font-size:14px; opacity:.85; margin-bottom:6px; text-align:center;">{title}</div>
+            <div style="font-size:32px; font-weight:700; line-height:1; text-align:center;">{val:.1f}</div>
+            <div style="font-size:13px; opacity:.9; margin-top:6px; text-align:center;">{player_name}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
 def render_kpi_box(title: str, value_text: str, subtitle: str = "") -> str:
     """Return the HTML of a KPI card with proper spacing."""
     width_px = 220
@@ -255,8 +301,10 @@ def render_kpi_box(title: str, value_text: str, subtitle: str = "") -> str:
             <div style="font-size:13px; opacity:.9; margin-top:6px; text-align:center;">{subtitle}</div>
         </div>
     """
+
+
 def compute_player_career_stats(df: pd.DataFrame, player: str, season_type: str) -> dict:
-    """Compute career averages and totals for a player with weighted means."""
+    """Compute career averages (weighted) and totals for a player."""
     if df.empty:
         return {}
 
@@ -272,6 +320,7 @@ def compute_player_career_stats(df: pd.DataFrame, player: str, season_type: str)
         return None
 
     stats = {}
+    # ✅ Career averages
     stats["PPG"] = weighted_avg("PTS_PG", "PTS")
     stats["RPG"] = weighted_avg("TRB_PG", "TRB")
     stats["APG"] = weighted_avg("AST_PG", "AST")
@@ -279,64 +328,159 @@ def compute_player_career_stats(df: pd.DataFrame, player: str, season_type: str)
     stats["BLK"] = weighted_avg("BLK_PG", "BLK")
     stats["TOV"] = weighted_avg("TOV_PG", "TOV")
 
-    # Total triple-doubles si dispo
+    # ✅ Career totals
+    stats["PTS_total"] = player_df["PTS"].sum() if "PTS" in player_df.columns else None
+    stats["AST_total"] = player_df["AST"].sum() if "AST" in player_df.columns else None
+    stats["TRB_total"] = player_df["TRB"].sum() if "TRB" in player_df.columns else None
+    stats["STL_total"] = player_df["STL"].sum() if "STL" in player_df.columns else None
+    stats["BLK_total"] = player_df["BLK"].sum() if "BLK" in player_df.columns else None
+    stats["TOV_total"] = player_df["TOV"].sum() if "TOV" in player_df.columns else None
+    stats["G_total"] = total_games
+
+    # ✅ Triple-doubles
     if season_type == "Regular Season" and "TRP-DBL" in player_df.columns:
         stats["Triple Doubles"] = player_df["TRP-DBL"].sum()
 
     return stats
 
+
 def display_kpi_cards(df: pd.DataFrame, player: str, season_type: str):
-    """Display KPI cards in 2 rows (career averages + career totals)."""
+    """Display KPI cards in 2 rows (career averages only)."""
     stats = compute_player_career_stats(df, player, season_type)
-    if not stats:
+    if stats is None or len(stats) == 0:
         st.info("⚠️ No data available.")
         return
 
-    # Row 1 : Moyennes pondérées
     st.markdown("### 📊 Career Averages")
-    cols_row1 = st.columns(4 if "Triple Doubles" in stats else 3)
-    i = 0
-    for key in ["PPG", "RPG", "APG", "Triple Doubles"]:
-        if key in stats and stats[key] is not None:
-            cols_row1[i].markdown(render_kpi_box(
-                "Points Per Game" if key == "PPG" else
-                "Rebounds Per Game" if key == "RPG" else
-                "Assists Per Game" if key == "APG" else
-                "Triple Doubles",
-                f"{stats[key]:.1f}" if key != "Triple Doubles" else f"{int(stats[key])}"
-            ), unsafe_allow_html=True)
-            i += 1
 
-    # Espace entre les rows
+    labels = {
+        "PPG": "Points Per Game",
+        "RPG": "Rebounds Per Game",
+        "APG": "Assists Per Game",
+        "STL": "Steals Per Game",
+        "BLK": "Blocks Per Game",
+        "TOV": "Turnovers Per Game",
+        "Triple Doubles": "Triple Doubles (Regular Season)"
+    }
+
+    # --- Ligne 1 : PPG, RPG, APG, Triple Doubles (si RS)
+    keys_row1 = ["PPG", "RPG", "APG"]
+    if season_type == "Regular Season" and "Triple Doubles" in stats:
+        keys_row1.append("Triple Doubles")
+
+    cols1 = st.columns(len(keys_row1))
+    for i, key in enumerate(keys_row1):
+        if key in stats and stats[key] is not None:
+            value = f"{stats[key]:.1f}" if key != "Triple Doubles" else f"{int(stats[key])}"
+            cols1[i].markdown(render_kpi_box(labels[key], value), unsafe_allow_html=True)
+
+    # --- Espace entre les lignes
+    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+
+    # --- Ligne 2 : STL, BLK, TOV
+    keys_row2 = ["STL", "BLK", "TOV"]
+    cols2 = st.columns(len(keys_row2))
+    for i, key in enumerate(keys_row2):
+        if key in stats and stats[key] is not None:
+            value = f"{stats[key]:.1f}"
+            cols2[i].markdown(render_kpi_box(labels[key], value), unsafe_allow_html=True)
+
+
+
+import streamlit as st
+
+# -------------------------------
+# HTML Render Helpers
+# -------------------------------
+def render_award_card(title: str, player: str, stats_text: str = "") -> str:
+    """Large KPI card for MVP, ROY etc."""
+    return f"""
+        <div style="
+            background:#17408B;
+            color:#FFFFFF;
+            padding:20px;
+            border-radius:15px;
+            width:350px;
+            height:180px;
+            margin:auto;
+            margin-bottom:20px;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            text-align:center;
+        ">
+            <div style="font-size:16px; opacity:.85; margin-bottom:10px;">{title}</div>
+            <div style="font-size:26px; font-weight:700; line-height:1.2; word-wrap:break-word;">{player}</div>
+            <div style="font-size:14px; opacity:.9; margin-top:8px;">{stats_text}</div>
+        </div>
+    """
+
+def render_stat_leader(title: str, value: str, subtitle: str = "") -> str:
+    """Compact KPI card for leaders (PPG, RPG, APG, WS)."""
+    return f"""
+        <div style="
+            background:#17408B;
+            color:#FFFFFF;
+            padding:16px;
+            border-radius:12px;
+            width:220px;
+            height:120px;
+            margin:auto;
+            margin-bottom:20px;
+            text-align:center;
+        ">
+            <div style="font-size:14px; opacity:.85; margin-bottom:6px;">{title}</div>
+            <div style="font-size:28px; font-weight:700; line-height:1;">{value}</div>
+            <div style="font-size:13px; opacity:.9; margin-top:6px;">{subtitle}</div>
+        </div>
+    """
+
+# -------------------------------
+# Display Awards KPI
+# -------------------------------
+def display_awards_kpi(df_awards, season: str):
+    if df_awards.empty:
+        st.info("⚠️ No awards data available.")
+        return
+
+    df_season = df_awards[df_awards["SEASON"] == season]
+    if df_season.empty:
+        st.info(f"⚠️ No awards found for season {season}.")
+        return
+
+    # --- Line 1 : MVP + ROY
+    col1, col2 = st.columns(2)
+    mvp = df_season[df_season["AWARD"] == "Most Valuable Player"]
+    roy = df_season[df_season["AWARD"] == "Rookie of the Year"]
+
+    if not mvp.empty:
+        row = mvp.iloc[0]
+        stats_text = f"{row['PPG']} PPG | {row['RPG']} RPG | {row['APG']} APG"
+        col1.markdown(render_award_card("Most Valuable Player", row["NAME"], stats_text), unsafe_allow_html=True)
+
+    if not roy.empty:
+        row = roy.iloc[0]
+        stats_text = f"{row['PPG']} PPG | {row['RPG']} RPG | {row['APG']} APG"
+        col2.markdown(render_award_card("Rookie of the Year", row["NAME"], stats_text), unsafe_allow_html=True)
+
+    # --- Space
     st.markdown("<div style='margin-top:25px;'></div>", unsafe_allow_html=True)
 
-    # Row 2 : Totaux carrière
-    st.markdown("### 🏆 Career Totals")
-    cols_row2 = st.columns(4)
-    totals_map = {
-        "PTS_total": "Total Points",
-        "AST_total": "Total Assists",
-        "TRB_total": "Total Rebounds",
-        "G_total": "Games Played"
+    # --- Line 2 : Leaders (PPG, RPG, APG, WS)
+    leaders = {
+        "PPG Leader": "PPG",
+        "RPG Leader": "RPG",
+        "APG Leader": "APG",
+        "WS Leader": "WS",
     }
-    i = 0
-    for key, label in totals_map.items():
-        if key in stats and stats[key] is not None:
-            cols_row2[i].markdown(render_kpi_box(
-                label, f"{int(stats[key])}"
-            ), unsafe_allow_html=True)
-            i += 1
 
-    cols_row3 = st.columns(3)
-    extra_map = {
-        "STL_total": "Total Steals",
-        "BLK_total": "Total Blocks",
-        "TOV_total": "Total Turnovers"
-    }
+    cols = st.columns(len(leaders))
     i = 0
-    for key, label in extra_map.items():
-        if key in stats and stats[key] is not None:
-            cols_row3[i].markdown(render_kpi_box(
-                label, f"{int(stats[key])}"
-            ), unsafe_allow_html=True)
-            i += 1
+    for award_name, stat_col in leaders.items():
+        row = df_season[df_season["AWARD"] == award_name]
+        if not row.empty:
+            row = row.iloc[0]
+            value = row[stat_col] if pd.notna(row[stat_col]) else ""
+            player = row["NAME"] if pd.notna(row["NAME"]) else ""
+            cols[i].markdown(render_stat_leader(award_name, f"{value}", player), unsafe_allow_html=True)
+        i += 1
