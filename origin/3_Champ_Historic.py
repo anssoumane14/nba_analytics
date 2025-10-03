@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import unicodedata
 import pandas as pd
 import streamlit as st
@@ -32,11 +31,14 @@ def load_data(path: str) -> pd.DataFrame:
     df = pd.read_excel(path)
     # Normalisation minimale des noms de colonnes pour robustesse
     df.columns = [c.strip() for c in df.columns]
-    # Unifier le nom de la colonne des finalistes (RUNNER)
+    # Unifier le nom de la colonne des finalistes (RUNNER) 
     df["RUNNER"] = df["RUNNER-UP"]
     return df
 
+
 df_raw = load_data("data/df_nba_champion.xlsx")
+
+#st.dataframe(df_raw)
 
 st.markdown(
     """
@@ -48,6 +50,7 @@ st.markdown(
 # -------------------------------
 # Functions
 # -------------------------------
+
 def normalize_txt(s: str) -> str:
     """Minuscule + trim + suppression des accents. Gère None/NaN."""
     if s is None:
@@ -59,9 +62,10 @@ def normalize_txt(s: str) -> str:
     s = "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
     return s
 
+
 def graphique_barres(data: pd.DataFrame, col_valeur: str, col_label: str, titre: str, col_couleur: str | None = None):
     """Graphique en barres horizontales (top to bottom) avec valeurs affichées."""
-    data_sorted = data.sort_values(by=col_valeur, ascending=False)
+    data_sorted = data.sort_values(by=col_valeur, ascending=False)  # ascending False pour barres du haut vers le bas
 
     kwargs = dict(
         data_frame=data_sorted,
@@ -96,6 +100,7 @@ def graphique_barres(data: pd.DataFrame, col_valeur: str, col_label: str, titre:
     )
     return fig
 
+
 # -------------------------------
 # Préparation des colonnes normalisées
 # -------------------------------
@@ -114,12 +119,13 @@ df["PLAYERS_ALL_NORM"] = (
 # -------------------------------
 # Onglets
 # -------------------------------
-onglet_hist, onglet_stats = st.tabs([" Tableau d'honneur", " Bilan des franchises"])
+onglet_hist, onglet_stats = st.tabs([" Tableau d'honneur", " Bilan des franchises"])  # guillemets simples dans le label
 
 # ===== Onglet 1 : Historique des champions =====
 with onglet_hist:
     st.markdown("### Filtrer le palmarès")
 
+    # Listes d'options (indépendantes, depuis le DF complet)
     years = ["Toutes"] + sorted([y for y in df["YEAR"].dropna().unique().tolist()], reverse=True)
     champs = ["Toutes"] + sorted([c for c in df["CHAMPION"].dropna().unique().tolist()])
     runners = ["Toutes"] + sorted([r for r in df["RUNNER"].dropna().unique().tolist()])
@@ -142,7 +148,7 @@ with onglet_hist:
     with col4:
         player_filter = st.selectbox("Sélectionner un joueur", players, key="player_hist")
 
-    # Application cumulative des filtres
+    # Application cumulative des filtres (AND)
     filtered = df.copy()
 
     def apply_eq(_df: pd.DataFrame, col: str, val):
@@ -154,10 +160,12 @@ with onglet_hist:
 
     if player_filter != "Toutes":
         player_norm = normalize_txt(player_filter)
+        # Recherche exacte sur l'une des 4 colonnes (via split de la concat)
         filtered = filtered[filtered["PLAYERS_ALL_NORM"].str.split("|").apply(lambda lst: player_norm in lst)]
 
     st.markdown("### Résultats")
 
+    # Colonnes techniques à masquer
     tech_cols = [c for c in filtered.columns if c.endswith("_NORM") or c == "PLAYERS_ALL_NORM"]
 
     if filtered.empty:
@@ -171,66 +179,48 @@ with onglet_hist:
 
 # ===== Onglet 2 : Statistiques globales d’équipe =====
 with onglet_stats:
-    st.markdown("### Vue d’ensemble — franchises (depuis 1976)")
-
-    df_all = df.copy()
+    st.markdown("### Vue d’ensemble — franchises")
 
     # 1) Plus de titres par équipe (Top 10)
     titles_count = (
-        df_all.groupby("CHAMPION").size()
-        .reset_index(name="Titres")
-        .sort_values(by="Titres", ascending=False)
-        .head(10)
+        df.groupby("CHAMPION").size().reset_index(name="Titres").sort_values(by="Titres", ascending=False).head(10)
     )
 
     # 2) Plus de trophées Finals MVP par joueur (Top 10)
     mvp_count = (
-        df_all[df_all["FINALS_MVP"].notna()]
-        .groupby("FINALS_MVP").size()
-        .reset_index(name="Trophées MVP")
-        .sort_values(by="Trophées MVP", ascending=False)
-        .head(10)
+        df[df["FINALS_MVP"].notna()]
+        .groupby("FINALS_MVP").size().reset_index(name="Trophées MVP")
+        .sort_values(by="Trophées MVP", ascending=False).head(10)
     )
 
     # 3) Plus de participations en finales par équipe (Top 10)
     team_appearances = (
         pd.concat([
-            df_all[["CHAMPION"]].rename(columns={"CHAMPION": "Équipe"}),
-            df_all[["RUNNER"]].rename(columns={"RUNNER": "Équipe"}),
+            df[["CHAMPION"]].rename(columns={"CHAMPION": "Équipe"}),
+            df[["RUNNER"]].rename(columns={"RUNNER": "Équipe"}),
         ])
         .dropna()
-        .groupby("Équipe").size()
-        .reset_index(name="Participations")
-        .sort_values(by="Participations", ascending=False)
-        .head(10)
+        .groupby("Équipe").size().reset_index(name="Participations")
+        .sort_values(by="Participations", ascending=False).head(10)
     )
 
     # Affichages + graphiques
     left, mid, right = st.columns(3)
 
     with left:
-        fig1 = graphique_barres(
-            titles_count,
-            col_valeur="Titres",
-            col_label="CHAMPION",
-            titre="Titres par équipe"
-        )
+        #st.markdown("#### Top 10 équipes par nombre de titres")
+        #st.dataframe(titles_count, hide_index=True, use_container_width=True)
+        fig1 = graphique_barres(titles_count, col_valeur="Titres", col_label="CHAMPION", titre="Titres par équipe")
         st.plotly_chart(fig1, use_container_width=True, theme="streamlit")
 
     with mid:
-        fig2 = graphique_barres(
-            mvp_count,
-            col_valeur="Trophées MVP",
-            col_label="FINALS_MVP",
-            titre="Finals MVP — cumul"
-        )
+        #st.markdown("#### Top 10 joueurs avec le plus de Finals MVP")
+        #st.dataframe(mvp_count, hide_index=True, use_container_width=True)
+        fig2 = graphique_barres(mvp_count, col_valeur="Trophées MVP", col_label="FINALS_MVP", titre="Finals MVP — cumul")
         st.plotly_chart(fig2, use_container_width=True, theme="streamlit")
 
     with right:
-        fig3 = graphique_barres(
-            team_appearances,
-            col_valeur="Participations",
-            col_label="Équipe",
-            titre="Participations en finales"
-        )
+        #st.markdown("#### Top 10 équipes par participations en finales")
+        #st.dataframe(team_appearances, hide_index=True, use_container_width=True)
+        fig3 = graphique_barres(team_appearances, col_valeur="Participations", col_label="Équipe", titre="Participations en finales")
         st.plotly_chart(fig3, use_container_width=True, theme="streamlit")
