@@ -12,17 +12,16 @@ st.set_page_config(page_title="NBA History", layout="wide")
 # -------------------------------
 # Navigation bar (top of page)
 # -------------------------------
-c1, c2, c3, c4, c5 = st.columns(5)
-with c1:
-    st.page_link("home.py",                   label=" Home")
-with c2:
-    st.page_link("pages/1_Team.py",           label=" Team")
-with c3:
-    st.page_link("pages/2_Statistics.py",     label=" Statistics")
-with c4:
-    st.page_link("pages/3_Champ_Historic.py", label=" History")
-with c5:
-    st.page_link("pages/4_Trade_Machine.py",  label=" Trade Machine")
+
+from nav_bar import show_navbar  # 👈 import de la fonction
+
+import plotly.express as px
+
+# -------------------------------
+# Navigation bar
+# -------------------------------
+show_navbar() 
+
 
 # -------------------------------
 # Load data
@@ -56,8 +55,11 @@ def normalize_txt(s: str) -> str:
     s = s.strip().casefold()
     s = "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
     return s
+
+
+
 def bar_chart(data: pd.DataFrame, col_value: str, col_label: str, title: str, col_color: str | None = None):
-    """Horizontal bar chart with values displayed properly."""
+    """Horizontal bar chart with values inside bars, clean layout."""
     data_sorted = data.sort_values(by=col_value, ascending=False)
 
     kwargs = dict(
@@ -76,19 +78,19 @@ def bar_chart(data: pd.DataFrame, col_value: str, col_label: str, title: str, co
 
     fig.update_traces(
         texttemplate="%{text}",
-        textposition="inside",   # 👈 place the numbers inside bars
+        textposition="inside",
         insidetextanchor="start",
-        textfont=dict(color="white", size=14, family="Arial"),  # white text inside bars
+        textfont=dict(color="white", size=14, family="Arial"),
         marker_line_width=0,
     )
 
     fig.update_layout(
-        xaxis=dict(showticklabels=True, showgrid=False, zeroline=False),  # 👈 show axis ticks
-        yaxis=dict(showgrid=False, zeroline=False),
+        xaxis=dict(visible=False),  # hide X axis
+        yaxis=dict(showgrid=False, zeroline=False, title=None),  # 👈 hide Y axis label
         bargap=0.15,
         plot_bgcolor="white",
         showlegend=False,
-        margin=dict(l=120, r=80, t=60, b=40),  # 👈 more margin on right
+        margin=dict(l=120, r=60, t=60, b=40),
         title=dict(x=0.02, xanchor="left"),
     )
     return fig
