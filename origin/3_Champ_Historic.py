@@ -224,3 +224,71 @@ with onglet_stats:
         #st.dataframe(team_appearances, hide_index=True, use_container_width=True)
         fig3 = graphique_barres(team_appearances, col_valeur="Participations", col_label="Équipe", titre="Participations en finales")
         st.plotly_chart(fig3, use_container_width=True, theme="streamlit")
+
+
+# ===== Onglet 2 : Statistiques globales d’équipe =====
+with onglet_stats:
+    st.markdown("### Vue d’ensemble — franchises (depuis 1976)")
+
+    # On prend TOUTES les données, pas "filtered"
+    df_all = df.copy()
+
+    # 1) Plus de titres par équipe (Top 10)
+    titles_count = (
+        df_all.groupby("CHAMPION").size()
+        .reset_index(name="Titres")
+        .sort_values(by="Titres", ascending=False)
+        .head(10)
+    )
+
+    # 2) Plus de trophées Finals MVP par joueur (Top 10)
+    mvp_count = (
+        df_all[df_all["FINALS_MVP"].notna()]
+        .groupby("FINALS_MVP").size()
+        .reset_index(name="Trophées MVP")
+        .sort_values(by="Trophées MVP", ascending=False)
+        .head(10)
+    )
+
+    # 3) Plus de participations en finales par équipe (Top 10)
+    team_appearances = (
+        pd.concat([
+            df_all[["CHAMPION"]].rename(columns={"CHAMPION": "Équipe"}),
+            df_all[["RUNNER"]].rename(columns={"RUNNER": "Équipe"}),
+        ])
+        .dropna()
+        .groupby("Équipe").size()
+        .reset_index(name="Participations")
+        .sort_values(by="Participations", ascending=False)
+        .head(10)
+    )
+
+    # Affichages + graphiques
+    left, mid, right = st.columns(3)
+
+    with left:
+        fig1 = graphique_barres(
+            titles_count,
+            col_valeur="Titres",
+            col_label="CHAMPION",
+            titre="Titres par équipe"
+        )
+        st.plotly_chart(fig1, use_container_width=True, theme="streamlit")
+
+    with mid:
+        fig2 = graphique_barres(
+            mvp_count,
+            col_valeur="Trophées MVP",
+            col_label="FINALS_MVP",
+            titre="Finals MVP — cumul"
+        )
+        st.plotly_chart(fig2, use_container_width=True, theme="streamlit")
+
+    with right:
+        fig3 = graphique_barres(
+            team_appearances,
+            col_valeur="Participations",
+            col_label="Équipe",
+            titre="Participations en finales"
+        )
+        st.plotly_chart(fig3, use_container_width=True, theme="streamlit")

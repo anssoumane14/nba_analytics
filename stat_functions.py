@@ -351,7 +351,7 @@ def display_kpi_cards(df: pd.DataFrame, player: str, season_type: str):
         st.info("⚠️ No data available.")
         return
 
-    st.markdown("### 📊 Career Averages")
+    st.markdown("### Career Averages")
 
     labels = {
         "PPG": "Points Per Game",
