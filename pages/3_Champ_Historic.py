@@ -56,9 +56,8 @@ def normalize_txt(s: str) -> str:
     s = s.strip().casefold()
     s = "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
     return s
-
 def bar_chart(data: pd.DataFrame, col_value: str, col_label: str, title: str, col_color: str | None = None):
-    """Horizontal bar chart with values displayed."""
+    """Horizontal bar chart with values displayed properly."""
     data_sorted = data.sort_values(by=col_value, ascending=False)
 
     kwargs = dict(
@@ -77,19 +76,19 @@ def bar_chart(data: pd.DataFrame, col_value: str, col_label: str, title: str, co
 
     fig.update_traces(
         texttemplate="%{text}",
-        textposition="outside",
-        insidetextanchor="end",
-        textfont=dict(color="grey", size=14, family="Arial"),
+        textposition="inside",   # 👈 place the numbers inside bars
+        insidetextanchor="start",
+        textfont=dict(color="white", size=14, family="Arial"),  # white text inside bars
         marker_line_width=0,
     )
 
     fig.update_layout(
-        xaxis=dict(showticklabels=False, showgrid=False, zeroline=False),
+        xaxis=dict(showticklabels=True, showgrid=False, zeroline=False),  # 👈 show axis ticks
         yaxis=dict(showgrid=False, zeroline=False),
-        bargap=0.05,
+        bargap=0.15,
         plot_bgcolor="white",
         showlegend=False,
-        margin=dict(l=120, r=40, t=60, b=40),
+        margin=dict(l=120, r=80, t=60, b=40),  # 👈 more margin on right
         title=dict(x=0.02, xanchor="left"),
     )
     return fig
