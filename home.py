@@ -300,7 +300,7 @@ with tab_salaries:
             st.dataframe(df_filtered, hide_index=True, use_container_width=True)
 
 
-"""
+
 # -------------------------------
 # All-Star Teams Tab
 # -------------------------------
@@ -324,4 +324,4 @@ with tab_all_star:
         else:
             st.info(f"No All-Star file found for {season_filter}.")
     else:
-        st.info("Please select a season to view All-Star Teams.")"""
+        st.info("Please select a season to view All-Star Teams.")
