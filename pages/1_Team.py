@@ -63,16 +63,15 @@ if season_filter:
 df_reg_players["TEAM_CLEAN"] = df_reg_players["TEAM"].apply(keep_last_team)
 team_options = sorted(df_reg_players["TEAM_CLEAN"].dropna().unique())
 selected_team = st.selectbox("Select a Team", team_options, index=0, key="team_filter")
-
 # -------------------------------
 # Standings
 # -------------------------------
 if not df_east.empty and "EASTERN_CONFERENCE" in df_east.columns:
-    df_east["PLAYOFF_TEAM"] = df_east["EASTERN_CONFERENCE"].str.contains(r"\*", regex=True).astype(int)
+    df_east["PLAYOFF_TEAM"] = df_east["EASTERN_CONFERENCE"].str.contains(r"\*", regex=True).map({True: "Yes", False: "No"})
     df_east["EASTERN_CONFERENCE"] = df_east["EASTERN_CONFERENCE"].str.replace(r"\*", "", regex=True).str.strip()
 
 if not df_west.empty and "WESTERN_CONFERENCE" in df_west.columns:
-    df_west["PLAYOFF_TEAM"] = df_west["WESTERN_CONFERENCE"].str.contains(r"\*", regex=True).astype(int)
+    df_west["PLAYOFF_TEAM"] = df_west["WESTERN_CONFERENCE"].str.contains(r"\*", regex=True).map({True: "Yes", False: "No"})
     df_west["WESTERN_CONFERENCE"] = df_west["WESTERN_CONFERENCE"].str.replace(r"\*", "", regex=True).str.strip()
 
 df_west_local = df_west.rename(columns={"WESTERN_CONFERENCE": "TEAM"}).copy()
@@ -87,10 +86,12 @@ team_row = df_standings[df_standings["TEAM"] == selected_team]
 if not team_row.empty:
     conf = team_row.iloc[0]["CONF"]
     rank = int(team_row.iloc[0]["RANK"])
-    playoff_flag = int(team_row.iloc[0]["PLAYOFF_TEAM"])
+    playoff_flag = team_row.iloc[0]["PLAYOFF_TEAM"]  # déjà "Yes"/"No"
     st.markdown(f"**Conference:** {conf} — **Rank:** #{rank} — **Playoffs:** {playoff_flag}")
 else:
-    st.warning(f"⚠️ {selected_team} not found in standings!")
+    st.warning(f"{selected_team} not found in standings!")
+
+
 
 # -------------------------------
 # Team Statistics

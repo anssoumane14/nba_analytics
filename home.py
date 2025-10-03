@@ -57,7 +57,7 @@ for df in flats.values():
         all_seasons.update(df["SEASON"].dropna().unique())
 
 if all_seasons:
-    season_filter = st.selectbox("🔎 Select a season", sorted(all_seasons, reverse=True))
+    season_filter = st.selectbox("Select a season", sorted(all_seasons, reverse=True))
 else:
     season_filter = None
     st.warning("No seasons available in the flat tables")
