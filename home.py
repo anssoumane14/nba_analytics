@@ -121,7 +121,6 @@ with tab_conf:
             st.dataframe(df_west[cols_west], hide_index=True, use_container_width=True)
         else:
             st.info("No Western Conference data available.")
-
 # -------------------------------
 # Top Players Tab
 # -------------------------------
@@ -134,21 +133,11 @@ with tab_top_players:
         if season_filter:
             df_players = df_players[df_players["SEASON"] == season_filter]
 
-        # Filtering out players with too few games/minutes
+        # Filter out players with too few games/minutes
         if "G" in df_players.columns and "MP" in df_players.columns:
             df_players = df_players[(df_players["G"] > 10) & (df_players["MP"] > 100)]
 
-        all_teams = sorted(df_players["TEAM"].dropna().unique())
-        team_choice = st.selectbox(
-            "Select Team",
-            options=["All Teams"] + all_teams,
-            index=0,
-            key="top_players_team_filter"
-        )
-
-        df_tp = df_players.copy()
-        if team_choice != "All Teams":
-            df_tp = df_tp[df_tp["TEAM"] == team_choice]
+        df_tp = df_players.copy()  # 👈 keep all players, no team filter
 
         metrics = {
             "Points Per Game": "PTS_PG",
