@@ -99,18 +99,29 @@ else:
 df_current = df_reg_players[df_reg_players["TEAM_CLEAN"] == selected_team]
 st.markdown(f"### Team Statistics — {selected_team} ({season_filter})")
 
-# KPIs
-c1, c2, c3 = st.columns(3)
-with c1: render_kpi(df_current, "PTS_PG", "Points Per Game")
-with c2: render_kpi(df_current, "TRB_PG", "Rebounds Per Game")
-with c3: render_kpi(df_current, "AST_PG", "Assists Per Game")
+# KPIs ligne 1
+c1, spacer1, c2, spacer2, c3 = st.columns([1, 0.2, 1, 0.2, 1])
+
+with c1:
+    render_kpi(df_current, "PTS_PG", "Points Per Game")
+with c2:
+    render_kpi(df_current, "TRB_PG", "Rebounds Per Game")
+with c3:
+    render_kpi(df_current, "AST_PG", "Assists Per Game")
+
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-c4, c5, c6 = st.columns(3)
-with c4: render_kpi(df_current, "STL_PG", "Steals Per Game")
-with c5: render_kpi(df_current, "BLK_PG", "Blocks Per Game")
-with c6: render_kpi(df_current, "TOV_PG", "Turnovers Per Game")
+# KPIs ligne 2
+c4, spacer3, c5, spacer4, c6 = st.columns([1, 0.2, 1, 0.2, 1])
+
+with c4:
+    render_kpi(df_current, "STL_PG", "Steals Per Game")
+with c5:
+    render_kpi(df_current, "BLK_PG", "Blocks Per Game")
+with c6:
+    render_kpi(df_current, "TOV_PG", "Turnovers Per Game")
+
 
 st.markdown("<br><br>", unsafe_allow_html=True)
 

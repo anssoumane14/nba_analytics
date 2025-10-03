@@ -271,7 +271,7 @@ def render_kpi(df: pd.DataFrame, value_col: str, title: str):
     val = float(row[value_col])
     player_name = str(row.get("PLAYER", "Unknown"))
 
-    width_px = 220
+    width_px = 280
     st.markdown(
         f"""
         <div style="background:#17408B; color:#FFFFFF; padding:16px; border-radius:12px; width:{width_px}px;">
