@@ -46,7 +46,7 @@ flats = {
 # -------------------------------
 # Title
 # -------------------------------
-st.markdown("<h1 style='text-align: center;'>🏀 NBA Dashboard</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>NBA Dashboard</h1>", unsafe_allow_html=True)
 
 # -------------------------------
 # Season Selector
@@ -72,13 +72,16 @@ if not flats["flat_awards"].empty and season_filter:
 # -------------------------------
 # Tabs
 # -------------------------------
-tab_conf, tab_top_players, tab_honors, tab_salaries = st.tabs([
+
+# Add All-Star Teams Tab
+# -------------------------------
+tab_conf, tab_top_players, tab_honors, tab_salaries, tab_all_star = st.tabs([
     "Conference Standings",
     "Top Players",
     "Honors",
-    "Salaries"
+    "Salaries",
+    "All-Star Teams"
 ])
-
 # -------------------------------
 # Conference Standings Tab
 # -------------------------------
@@ -295,3 +298,30 @@ with tab_salaries:
                 df_filtered = df_filtered[cols]
 
             st.dataframe(df_filtered, hide_index=True, use_container_width=True)
+
+
+"""
+# -------------------------------
+# All-Star Teams Tab
+# -------------------------------
+with tab_all_star:
+    st.markdown("## All-Star Teams")
+
+    if season_filter:
+        # Extraire uniquement l'année de début (ex: '2016-17' -> '2016')
+        year_str = str(season_filter).split("-")[0]
+        path_allstar = f"raw_data/all_star_teams/all_star_teams_{year_str}.csv"
+
+        if os.path.exists(path_allstar):
+            try:
+                df_all_star = pd.read_csv(path_allstar, encoding="utf-8-sig")
+                if not df_all_star.empty:
+                    st.dataframe(df_all_star, hide_index=True, use_container_width=True)
+                else:
+                    st.info("All-Star data is empty for this season.")
+            except Exception as e:
+                st.error(f"Error loading All-Star data: {e}")
+        else:
+            st.info(f"No All-Star file found for {season_filter}.")
+    else:
+        st.info("Please select a season to view All-Star Teams.")"""
