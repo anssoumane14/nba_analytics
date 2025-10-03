@@ -115,6 +115,7 @@ df["PLAYERS_ALL_NORM"] = (
 tab_history, tab_stats = st.tabs([" Champions Table", " Franchise Records"])
 
 # ===== Tab 1: History of champions =====
+# ===== Tab 1: History of champions =====
 with tab_history:
     st.markdown("### Filter the history")
 
@@ -156,16 +157,20 @@ with tab_history:
 
     st.markdown("### Results")
 
-    tech_cols = [c for c in filtered.columns if c.endswith("_NORM") or c == "PLAYERS_ALL_NORM"]
-
     if filtered.empty:
         st.info("No results for this filter combination.")
     else:
-        st.dataframe(
-            filtered.drop(columns=tech_cols, errors="ignore"),
-            hide_index=True,
-            use_container_width=True,
-        )
+        # Subset 1: Finals summary
+        df1 = filtered[["YEAR", "CHAMPION", "RUNNER-UP", "FINALS_MVP"]].dropna(how="all", axis=0)
+        st.markdown("#### Finals Summary")
+        st.dataframe(df1, hide_index=True, use_container_width=True)
+
+        # Subset 2: Top playoff performers
+        cols_perf = [c for c in ["POINTS", "REBOUNDS", "ASSISTS", "WIN_SHARES"] if c in filtered.columns]
+        if cols_perf:
+            df2 = filtered[["YEAR"] + cols_perf].dropna(how="all", axis=0)
+            st.markdown("#### Top Playoff Performers")
+            st.dataframe(df2, hide_index=True, use_container_width=True)
 
 # ===== Tab 2: Franchise statistics =====
 with tab_stats:
