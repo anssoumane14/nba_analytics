@@ -1,0 +1,25 @@
+name: App smoke test
+
+on:
+  push:
+    branches-ignore: [main]   # test branches before they are merged
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Installed versions
+        run: pip freeze | grep -iE '^(pandas|streamlit|plotly|requests|beautifulsoup4|numpy|openpyxl|lxml|html5lib)=='
+      - name: Run Home and every page with AppTest
+        run: python tests/smoke_test.py
