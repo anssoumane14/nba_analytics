@@ -13,6 +13,7 @@ import sys
 import tempfile
 import warnings
 
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -97,6 +98,7 @@ def main():
             shutil.copytree(ROOT, copy, ignore=shutil.ignore_patterns(
                 ".git", ".venv", "raw_data_bball_ref", "processed_*", "flat_table_bin"))
             os.remove(os.path.join(copy, rel))
+            st.cache_data.clear()  # otherwise data cached by earlier runs hides the missing file
             at = run_page(copy, page)
             excs = [str(e.value)[:200] for e in at.exception]
             line = (f"{page} without {rel}: "
