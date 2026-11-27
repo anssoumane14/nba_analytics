@@ -4,4 +4,6 @@ plotly
 requests
 beautifulsoup4
 numpy
-openpyxl  
+openpyxl
+lxml
+html5lib
