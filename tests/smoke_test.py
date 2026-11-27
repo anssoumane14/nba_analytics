@@ -29,6 +29,13 @@ MISSING_FILE_CASES = {
 }
 
 
+def annotate(level, msg):
+    """Also surface a line as a GitHub Actions annotation (visible on the run page)."""
+    if os.environ.get("GITHUB_ACTIONS"):
+        clean = msg.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+        print(f"::{level}::{clean[:1000]}")
+
+
 class Collect(logging.Handler):
     def __init__(self):
         super().__init__(logging.WARNING)
@@ -68,13 +75,16 @@ def main():
               f"selectboxes={len(at.selectbox)}")
         for e in excs:
             print("    EXCEPTION:", e[:500])
+            annotate("error", f"{page}: {e}")
         for w in {f"{w.category.__name__}: {w.message}" for w in caught
                   if issubclass(w.category, (DeprecationWarning, FutureWarning))}:
             print("    WARNING:", w[:300])
+            annotate("warning", f"{page}: {w}")
 
     print("\n=== Deprecation / warning log lines (deduplicated) ===")
     for line in sorted({l[:300] for l in handler.lines if "ScriptRunContext" not in l}):
         print("   ", line)
+        annotate("warning", f"log: {line}")
 
     print("\n=== Resilience: one input file missing (informational, never fails) ===")
     for page, rel in MISSING_FILE_CASES.items():
@@ -86,13 +96,17 @@ def main():
             os.remove(os.path.join(copy, rel))
             at = run_page(copy, page)
             excs = [str(e.value)[:200] for e in at.exception]
-            print(f"  {page} without {rel}: "
-                  + ("CRASH -> " + excs[0] if excs else "handled (no exception)"))
+            line = (f"{page} without {rel}: "
+                    + ("CRASH -> " + excs[0] if excs else "handled (no exception)"))
+            print("  " + line)
+            annotate("notice", "resilience: " + line)
         finally:
             os.chdir(ROOT)
             shutil.rmtree(tmp, ignore_errors=True)
 
-    print(f"\nRESULT: {'FAILED' if failures else 'PASSED'} ({failures} page(s) with exceptions)")
+    result = f"RESULT: {'FAILED' if failures else 'PASSED'} ({failures} page(s) with exceptions)"
+    print("\n" + result)
+    annotate("notice", result)
     sys.exit(1 if failures else 0)
 
 
