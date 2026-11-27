@@ -46,9 +46,12 @@ class Collect(logging.Handler):
 
 
 def run_page(root, page):
+    """Start from home.py (the real entrypoint, as on Streamlit Cloud), then open `page`."""
     os.chdir(root)
-    at = AppTest.from_file(os.path.join(root, page), default_timeout=180)
+    at = AppTest.from_file(os.path.join(root, "home.py"), default_timeout=180)
     at.run()
+    if page != "home.py":
+        at.switch_page(page).run()
     return at
 
 
